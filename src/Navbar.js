@@ -8,12 +8,12 @@ export default function Navbar() {
         <h2>Health and Harmonyy</h2>
       </div>
       <ul style={navLinksStyle}>
-        {/* <li>
+        <li>
           <Link to="/tickets" style={linkStyle}>Tickets</Link>
         </li>
         <li>
           <Link to="/form" style={linkStyle}>Form</Link>
-        </li> */}
+        </li>
         <li>
           <Link to="/admin" style={linkStyle}>Admin</Link>
         </li>

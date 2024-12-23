@@ -2,8 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import Form from './Form';
 import "./index.css"
-// import SignatureCollection from './SigantureCollection';
-// import TicketsPage from './Ticket';
+import SignatureCollection from './SigantureCollection';
+import TicketsPage from './Ticket';
 import Admin from './Admin';
 import Records from './Record';
 // import Reports from './Reports';
@@ -14,8 +14,8 @@ function App() {
       <Routes>
         <Route path="/form" element={<Form />} />
         <Route path="/admin" element={<Admin />} />
-        {/* <Route path="/ticket/:id" element={<SignatureCollection />} /> */}
-        {/* <Route path="/tickets" element={<TicketsPage />} /> */}
+        <Route path="/ticket/:id" element={<SignatureCollection />} />
+        <Route path="/tickets" element={<TicketsPage />} />
         <Route path="/records" element={<Records />} />
         {/* <Route path="/reports" element={<Reports />} /> */}
         {/* <Route path="/form2" element={<Form2 />} /> */}
