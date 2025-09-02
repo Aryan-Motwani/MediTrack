@@ -7,7 +7,7 @@ const MENU = [
   {
     id: "m1",
     title: "Peri-Peri Paneer Wrap",
-    img: "https://b.zmtcdn.com/data/pictures/4/20108014/9adc38d7f21038ea6b62971df17c0ac2_o2_featured_v2.jpg?output-format=webp",
+    img: "https://picsum.photos/seed/paneer/200",
     category: "Wraps",
     description:
       "Smoky peri-peri paneer, crunchy lettuce, onions, and mint mayo wrapped in a whole wheat tortilla.",
@@ -20,7 +20,7 @@ const MENU = [
   {
     id: "m2",
     title: "Classic Chicken Bowl",
-    img: "https://easyfamilyrecipes.com/wp-content/uploads/2025/01/Southwest-Chicken-Bowl-Recipe.jpg",
+    img: "https://picsum.photos/seed/chicken/200",
     category: "Bowls",
     description:
       "Grilled chicken on herbed brown rice with roasted veggies and tangy house sauce.",
@@ -33,7 +33,7 @@ const MENU = [
   {
     id: "m3",
     title: "Veggie Buddha Bowl",
-    img: "https://www.simplysissom.com/wp-content/uploads/2019/07/Healthy-Burrito-Bowls-With-Cilantro-Lime-Dressing-FI-1.jpg",
+    img: "https://picsum.photos/seed/vegbowl/200",
     category: "Bowls",
     description:
       "Quinoa, chickpeas, avocado, cherry tomato, cucumber, and tahini drizzle.",
@@ -46,7 +46,7 @@ const MENU = [
   {
     id: "m4",
     title: "Margherita Square",
-    img: "https://images.immediate.co.uk/production/volatile/sites/30/2020/08/recipe-image-legacy-id-925468_10-9c3c06f.jpg",
+    img: "https://picsum.photos/seed/pizza/200",
     category: "Pizzas",
     description:
       "Crispy square pizza with San Marzano tomato, fresh mozzarella, and basil.",
@@ -59,7 +59,7 @@ const MENU = [
   {
     id: "m5",
     title: "Grilled Salmon Box",
-    img: "https://meshiagare.tokyo/wp-content/uploads/2019/09/shakeben02.jpg",
+    img: "https://picsum.photos/seed/salmon/200",
     category: "Mains",
     description:
       "Teriyaki glazed salmon, jasmine rice, sautéed greens, sesame seeds.",
@@ -72,7 +72,7 @@ const MENU = [
   {
     id: "m6",
     title: "Protein Pancake Bites",
-    img: "https://www.kingarthurbaking.com/sites/default/files/styles/featured_image/public/2021-08/Pancake-Bites_0437_.jpg?itok=6eRWuqbb",
+    img: "https://picsum.photos/seed/pancake/200",
     category: "Snacks",
     description:
       "Mini oat pancakes with whey, maple dip on the side.",
@@ -85,7 +85,7 @@ const MENU = [
   {
     id: "m7",
     title: "Hummus & Pita",
-    img: "https://tablenspoon.com/wp-content/uploads/2018/11/IMG_2411.jpg",
+    img: "https://picsum.photos/seed/hummus/200",
     category: "Snacks",
     description:
       "Creamy hummus, paprika oil, warm pita triangles.",
@@ -98,7 +98,7 @@ const MENU = [
   {
     id: "m8",
     title: "Cold Coffee (No Sugar)",
-    img: "https://www.heinens.com/content/uploads/2022/05/Mocha-Iced-Coffee-with-Vanilla-Cold-Foam-800x550-1.jpg",
+    img: "https://picsum.photos/seed/coffee/200",
     category: "Drinks",
     description:
       "Slow-brewed coffee shaken with milk and ice. Unsweetened by default.",
@@ -112,7 +112,7 @@ const MENU = [
 
 const CATEGORIES = ["All", ...Array.from(new Set(MENU.map((m) => m.category)))];
 
-export default function FoodOrderingApp({setPage}) {
+export default function FoodOrderingApp() {
   const [step, setStep] = useState("menu"); // 'info' | 'menu'
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -187,14 +187,9 @@ export default function FoodOrderingApp({setPage}) {
       {/* Header */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-neutral-200">
         <div className="max-w-screen-sm mx-auto px-4 py-3 flex items-center gap-3">
-          {/* <div className="h-9 w-9 rounded-2xl bg-black text-white grid place-items-center font-bold">CY</div> */}
-          <div className="h-9 w-9 rounded-2xl place-items-center">
-
-
-          <img  src="https://raw.githubusercontent.com/Aryan-Motwani/food/refs/heads/main/WhatsApp%20Image%20sdsd-modified.png"></img>
-          </div>
+          <div className="h-9 w-9 rounded-2xl bg-black text-white grid place-items-center font-bold">CY</div>
           <div className="flex-1">
-            <h1 className="text-lg font-semibold leading-tight">Count Your Calories</h1>
+            <h1 className="text-lg font-semibold leading-tight">CountYourCalorie</h1>
             <p className="text-xs text-neutral-500">Healthy, tasty & fast</p>
           </div>
           <button
@@ -284,13 +279,6 @@ export default function FoodOrderingApp({setPage}) {
               <div className="px-4 pt-4">
                 <h2 className="text-lg font-semibold">Hey {name.split(" ")[0] || "there"} 👋</h2>
                 <p className="text-sm text-neutral-600">What are you craving today?</p>
-                <button
-  onClick={() => setPage("myom")}
-  className="mt-5 px-4 py-3 rounded-2xl bg-black text-white text-sm font-medium active:scale-[0.99]"
->
-  Make Your Own Meal
-</button>
-
 
                 <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-2xl border bg-white">
                   <Search className="h-5 w-5" />
@@ -304,7 +292,7 @@ export default function FoodOrderingApp({setPage}) {
               </div>
 
               {/* Categories */}
-              <div className="px-4 mt-4 overflow-x-auto no-scrollbar">
+              {/* <div className="px-4 mt-4 overflow-x-auto no-scrollbar">
                 <div className="flex gap-2 w-max">
                   {CATEGORIES.map((cat) => (
                     <button
@@ -318,94 +306,63 @@ export default function FoodOrderingApp({setPage}) {
                     </button>
                   ))}
                 </div>
-              </div>
+              </div> */}
 
-              
+              {/* Categories Row */}
+<div className="px-4 mt-4 overflow-x-auto no-scrollbar">
+  <div className="flex gap-4 w-max">
+    {CATEGORIES.map((cat) => (
+      <button
+        key={cat}
+        onClick={() => setCategory(cat)}
+        className={`flex flex-col items-center text-sm ${
+          category === cat ? "text-black font-semibold" : "text-neutral-500"
+        }`}
+      >
+        <div className={`h-12 w-12 rounded-full flex items-center justify-center border ${
+          category === cat ? "border-black bg-black text-white" : "border-neutral-300"
+        }`}>
+          🍴
+        </div>
+        <span className="mt-1">{cat}</span>
+      </button>
+    ))}
+  </div>
+</div>
 
-              {/* Menu Grid */}
-              <div className="px-4 mt-4 grid grid-cols-1 gap-3">
-                <AnimatePresence>
-                  {itemsFiltered.map((item) => (
-                    <motion.div
-                      key={item.id}
-                      layout
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="rounded-3xl border border-neutral-200 bg-white p-3 shadow-sm"
-                    >
-                      <div className="flex gap-3">
-                        <img
-                          src={item.img}
-                          alt={item.title}
-                          className="h-20 w-20 rounded-2xl object-cover object-center flex-shrink-0"
-                          loading="lazy"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <h3 className="font-semibold truncate">{item.title}</h3>
-                              <p className="text-xs text-neutral-500 mt-0.5">{item.category}</p>
-                            </div>
-                            {cart[item.id] ? (
-                              <QtyControl
-                                qty={cart[item.id]}
-                                onDec={() => decrement(item.id)}
-                                onInc={() => increment(item.id)}
-                              />
-                            ) : (
-                              <button
-                                onClick={() => increment(item.id)}
-                                className="px-3 py-1.5 text-sm rounded-xl bg-black text-white active:scale-[0.98]"
-                              >
-                                Add
-                              </button>
-                            )}
-                          </div>
+{/* Filters Row */}
+<div className="px-4 mt-3 flex gap-2 overflow-x-auto no-scrollbar">
+  {["Under 30 mins", "New to you", "Great Offers"].map((f) => (
+    <button
+      key={f}
+      className="px-4 py-2 rounded-full border border-neutral-300 bg-white text-sm whitespace-nowrap"
+    >
+      {f}
+    </button>
+  ))}
+</div>
 
-                          {/* compact nutrition strip */}
-                          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-neutral-600">
-                            <span>🔥 {item.calories} kcal</span>
-                            <span>🥚 {item.protein}g P</span>
-                            <span>🌾 {item.carbs}g C</span>
-                            <span>🧈 {item.fats}g F</span>
-                            <span>₹ {item.price}</span>
-                          </div>
-                        </div>
-                      </div>
+{/* Recommended Section */}
+<div className="mt-6 px-4">
+  <h3 className="text-base font-semibold mb-3">Recommended for you</h3>
+  <div className="flex gap-3 overflow-x-auto no-scrollbar">
+    {MENU.slice(0, 5).map((item) => (
+      <div
+        key={item.id}
+        className="min-w-[160px] bg-white rounded-2xl border shadow-sm overflow-hidden"
+      >
+        <img src={item.img} alt={item.title} className="h-28 w-full object-cover" />
+        <div className="p-2">
+          <h4 className="font-medium text-sm truncate">{item.title}</h4>
+          <p className="text-xs text-neutral-500">{item.category}</p>
+          <p className="text-sm font-semibold mt-1">₹ {item.price}</p>
+        </div>
+      </div>
+    ))}
+  </div>
+</div>
 
-                      {/* Description toggle */}
-                      <button
-                        onClick={() =>
-                          setDescOpen((d) => ({ ...d, [item.id]: !d[item.id] }))
-                        }
-                        className="mt-2 w-full flex items-center justify-center gap-1 text-sm text-neutral-700"
-                      >
-                        <ChevronDown
-                          className={`h-4 w-4 transition-transform ${descOpen[item.id] ? "rotate-180" : ""}`}
-                        />
-                        <span>Description</span>
-                      </button>
-                      <AnimatePresence initial={false}>
-                        {descOpen[item.id] && (
-                          <motion.p
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="text-sm text-neutral-600 overflow-hidden px-1"
-                          >
-                            {item.description}
-                          </motion.p>
-                        )}
-                      </AnimatePresence>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
 
-                {itemsFiltered.length === 0 && (
-                  <p className="text-center text-sm text-neutral-500 py-10">No items match your search.</p>
-                )}
-              </div>
             </motion.section>
           )}
         </AnimatePresence>

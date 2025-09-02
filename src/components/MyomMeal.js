@@ -16,8 +16,8 @@ const categories = [
     baseAmount: 100,
     pricePerBase: 120, // ₹ per 100g
     options: [
-      { id: 1, name: "Chicken", calories: 200, protein: 30, carbs: 0, fat: 5, image: "https://source.unsplash.com/100x100/?chicken" },
-      { id: 2, name: "Paneer",  calories: 250, protein: 20, carbs: 10, fat: 15, image: "https://source.unsplash.com/100x100/?paneer" },
+      { id: 1, name: "Chicken", calories: 200, protein: 30, carbs: 0, fat: 5, image: "https://foodfolksandfun.net/wp-content/uploads/2021/06/Best-Way-To-Grill-Chicken-Breasts.jpg" },
+      { id: 2, name: "Paneer",  calories: 250, protein: 20, carbs: 10, fat: 15, image: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSojq2zBshtsAXKS1QwI9zrVvlIFMTpN-tcYw&s" },
     ],
   },
   {
@@ -27,9 +27,9 @@ const categories = [
     baseAmount: 50,
     pricePerBase: 40, // ₹ per 50g
     options: [
-      { id: 3, name: "Carrots",  calories: 41,  protein: 1, carbs: 10, fat: 0, image: "https://source.unsplash.com/100x100/?carrot" },
-      { id: 4, name: "Avocado",  calories: 160, protein: 2, carbs: 9,  fat: 15, image: "https://source.unsplash.com/100x100/?avocado" },
-      { id: 5, name: "Chillies", calories: 40,  protein: 1, carbs: 9,  fat: 0,  image: "https://source.unsplash.com/100x100/?chilli" },
+      { id: 3, name: "Carrots",  calories: 41,  protein: 1, carbs: 10, fat: 0, image: "https://thescattymum.com/wp-content/uploads/2023/05/how-to-make-carrot-sticks-1200.jpg" },
+      { id: 4, name: "Avocado",  calories: 160, protein: 2, carbs: 9,  fat: 15, image: "https://www.yummymummykitchen.com/wp-content/uploads/2021/01/how-to-cut-avocado-03-720x540.jpg" },
+      { id: 5, name: "Chillies", calories: 40,  protein: 1, carbs: 9,  fat: 0,  image: "https://www.shutterstock.com/image-photo/falling-sliced-red-hot-chili-600nw-2176842815.jpg" },
     ],
   },
   {
@@ -39,9 +39,8 @@ const categories = [
     baseAmount: 1,
     pricePerBase: 10, // ₹ per tsp
     options: [
-      { id: 6, name: "BBQ Sauce",    calories: 29, protein: 0, carbs: 7, fat: 0, image: "https://source.unsplash.com/100x100/?bbq" },
-      { id: 7, name: "Chilli Sauce", calories: 25, protein: 0, carbs: 6, fat: 0, image: "https://source.unsplash.com/100x100/?sauce" },
-      { id: 8, name: "Salsa Sauce",  calories: 10, protein: 0, carbs: 2, fat: 0, image: "https://source.unsplash.com/100x100/?salsa" },
+      { id: 6, name: "BBQ Sauce",    calories: 29, protein: 0, carbs: 7, fat: 0, image: "https://easyfamilyrecipes.com/wp-content/uploads/2021/02/Homemade-BBQ-Sauce-Recipe.jpg" },
+      { id: 7, name: "Chilli Sauce", calories: 25, protein: 0, carbs: 6, fat: 0, image: "https://www.thebutterhalf.com/wp-content/uploads/2023/02/Chili-Sauce-6-500x500.jpg" },
     ],
   },
   {
@@ -51,8 +50,8 @@ const categories = [
     baseAmount: 1,
     pricePerBase: 25, // ₹ per count
     options: [
-      { id: 9,  name: "Egg",          calories: 70,  protein: 6, carbs: 1, fat: 5, image: "https://source.unsplash.com/100x100/?egg" },
-      { id: 10, name: "Cheese Slice", calories: 110, protein: 7, carbs: 1, fat: 9, image: "https://source.unsplash.com/100x100/?cheese" },
+      { id: 9,  name: "Egg",          calories: 70,  protein: 6, carbs: 1, fat: 5, image: "https://www.foodtasticmom.com/wp-content/uploads/2016/10/easyeggs-feature.jpg" },
+      { id: 10, name: "Cheese Slice", calories: 110, protein: 7, carbs: 1, fat: 9, image: "https://superbutcher.com.au/cdn/shop/files/62172-1-1540_1080x.jpg?v=1708927106" },
     ],
   },
 ];
