@@ -10,6 +10,17 @@ export default function Form() {
   
   const [activityType, setActivityType] = useState('Trampoline'); // Activity selection state
 
+  const [numTrampoline, setNumTrampoline] = useState(0);
+const [trampolineDuration, setTrampolineDuration] = useState('30 min');
+
+const [numSoftplay, setNumSoftplay] = useState(0);
+const [softplayDuration, setSoftplayDuration] = useState('30 min');
+
+const [numSocks, setNumSocks] = useState(0);
+
+
+
+
   const [customerName, setCustomerName] = useState('');
   const [phone, setPhone] = useState('');
   const [numPeople, setNumPeople] = useState(1);
@@ -214,9 +225,6 @@ export default function Form() {
 
 
   const handleSubmit = (e) => {
-    console.log(durationPricing["Softplay"]);
-    console.log(durationPricing["Trampoline"]);
-    
     e.preventDefault();
     
     const packagePrice = durationPricing[activityType][selectedDuration];
@@ -347,8 +355,8 @@ const tableCellStyle = {
 };
 
 
+// submit button 
 const storeData = async () => {
-  
   const packagePrice = durationPricing[activityType][selectedDuration];
   let distribution = {'cash' : 0, 'credit card' : 0, 'upi' : 0}
 
@@ -602,6 +610,7 @@ const storeData = async () => {
     };
   
     const handleConfirm = () => {
+      
       setShowModal(false);
       storeData(); // Call your storeData function here
     };
@@ -654,6 +663,71 @@ const storeData = async () => {
               className="w-full mt-2 px-4 py-2 border rounded-md focus:outline-none focus:ring focus:ring-gray-300"
             />
           </div>
+
+{/* Trampoline Nums */}
+          <div>
+  <label className="block text-gray-700 font-medium">Number of Trampolines</label>
+  <input
+    type="number"
+    value={numTrampoline}
+    onChange={(e) => setNumTrampoline(parseInt(e.target.value) || 0)}
+    className="w-full mt-2 px-4 py-2 border rounded-md focus:outline-none focus:ring focus:ring-gray-300"
+  />
+</div>
+
+<div>
+  <label className="block text-gray-700 font-medium">Trampoline Duration</label>
+  <select
+    value={trampolineDuration}
+    onChange={(e) => setTrampolineDuration(e.target.value)}
+    className="w-full mt-2 px-4 py-2 border rounded-md focus:outline-none focus:ring focus:ring-gray-300"
+  >
+    <option value="30 min">30 min</option>
+    <option value="60 min">60 min</option>
+    <option value="90 min">90 min</option>
+  </select>
+</div>
+
+{/* Softplay Nums */}
+
+<div>
+  <label className="block text-gray-700 font-medium">Number of Softplays</label>
+  <input
+    type="number"
+    value={numSoftplay}
+    onChange={(e) => setNumSoftplay(parseInt(e.target.value) || 0)}
+    className="w-full mt-2 px-4 py-2 border rounded-md focus:outline-none focus:ring focus:ring-gray-300"
+  />
+</div>
+
+<div>
+  <label className="block text-gray-700 font-medium">Softplay Duration</label>
+  <select
+    value={softplayDuration}
+    onChange={(e) => setSoftplayDuration(e.target.value)}
+    className="w-full mt-2 px-4 py-2 border rounded-md focus:outline-none focus:ring focus:ring-gray-300"
+  >
+    <option value="30 min">30 min</option>
+    <option value="60 min">60 min</option>
+    <option value="90 min">90 min</option>
+  </select>
+</div>
+
+
+{/* Socks Q */}
+
+<div>
+  <label className="block text-gray-700 font-medium">Number of Socks</label>
+  <input
+    type="number"
+    value={numSocks}
+    onChange={(e) => setNumSocks(parseInt(e.target.value) || 0)}
+    className="w-full mt-2 px-4 py-2 border rounded-md focus:outline-none focus:ring focus:ring-gray-300"
+  />
+</div>
+
+
+
 
           {/* Phone Number */}
           <div>

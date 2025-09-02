@@ -1,27 +1,30 @@
-import React from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import Form from './Form';
-import "./index.css"
-import SignatureCollection from './SigantureCollection';
-import TicketsPage from './Ticket';
-import Admin from './Admin';
-import Records from './Record';
-// import Reports from './Reports';
-// import Form2 from './Form2';
+import { useState } from "react";
+import FoodMenu from "./components/FoodMenu.js";
+import MyomMeal from "./components/MyomMeal.js";
 
 function App() {
+  const [page, setPage] = useState("menu");
+
   return (
-      <Routes>
-        <Route path="/form" element={<Form />} />
-        <Route path="/admin" element={<Admin />} />
-        <Route path="/ticket/:id" element={<SignatureCollection />} />
-        <Route path="/tickets" element={<TicketsPage />} />
-        <Route path="/records" element={<Records />} />
-        {/* <Route path="/reports" element={<Reports />} /> */}
-        {/* <Route path="/form2" element={<Form2 />} /> */}
-        {/* Optional: Redirect unknown routes to /form */}
-        <Route path="*" element={<Navigate to="/form" replace />} />
-      </Routes>
+    <div className="min-h-screen bg-gray-100">
+      <nav className="flex justify-around bg-white shadow p-4 sticky top-0 z-50">
+        <button 
+          onClick={() => setPage("menu")} 
+          className={`px-4 py-2 rounded-lg ${page==="menu" ? "bg-red-500 text-white" : "bg-gray-200"}`}
+        >
+          Menu
+        </button>
+        <button 
+          onClick={() => setPage("myom")} 
+          className={`px-4 py-2 rounded-lg ${page==="myom" ? "bg-red-500 text-white" : "bg-gray-200"}`}
+        >
+          MyOM
+        </button>
+      </nav>
+
+      {page === "menu" && <FoodMenu />}
+      {page === "myom" && <MyomMeal />}
+    </div>
   );
 }
 
