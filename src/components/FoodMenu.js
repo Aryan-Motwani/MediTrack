@@ -1,115 +1,14 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingCart, Plus, Minus, X, ChevronDown, Search, CheckCircle, User, LogOut, History, Bell } from "lucide-react";
+import { ShoppingCart, Plus, Minus, X, ChevronDown, Search, CheckCircle, User, LogOut, History, Bell, RefreshCw } from "lucide-react";
 import {supabase} from '../createClient'
-
-// --- Sample Menu Data ---
-const MENU = [
-  {
-    id: "m1",
-    title: "Peri-Peri Paneer Wrap",
-    img: "https://b.zmtcdn.com/data/pictures/4/20108014/9adc38d7f21038ea6b62971df17c0ac2_o2_featured_v2.jpg?output-format=webp",
-    category: "Wraps",
-    description: "Smoky peri-peri paneer, crunchy lettuce, onions, and mint mayo wrapped in a whole wheat tortilla.",
-    calories: 420,
-    protein: 22,
-    carbs: 48,
-    fats: 16,
-    price: 249,
-  },
-  {
-    id: "m2",
-    title: "Classic Chicken Bowl",
-    img: "https://easyfamilyrecipes.com/wp-content/uploads/2025/01/Southwest-Chicken-Bowl-Recipe.jpg",
-    category: "Bowls",
-    description: "Grilled chicken on herbed brown rice with roasted veggies and tangy house sauce.",
-    calories: 520,
-    protein: 36,
-    carbs: 55,
-    fats: 18,
-    price: 329,
-  },
-  {
-    id: "m3",
-    title: "Veggie Buddha Bowl",
-    img: "https://www.simplysissom.com/wp-content/uploads/2019/07/Healthy-Burrito-Bowls-With-Cilantro-Lime-Dressing-FI-1.jpg",
-    category: "Bowls",
-    description: "Quinoa, chickpeas, avocado, cherry tomato, cucumber, and tahini drizzle.",
-    calories: 460,
-    protein: 17,
-    carbs: 62,
-    fats: 14,
-    price: 299,
-  },
-  {
-    id: "m4",
-    title: "Margherita Square",
-    img: "https://images.immediate.co.uk/production/volatile/sites/30/2020/08/recipe-image-legacy-id-925468_10-9c3c06f.jpg",
-    category: "Pizzas",
-    description: "Crispy square pizza with San Marzano tomato, fresh mozzarella, and basil.",
-    calories: 610,
-    protein: 24,
-    carbs: 72,
-    fats: 22,
-    price: 349,
-  },
-  {
-    id: "m5",
-    title: "Grilled Salmon Box",
-    img: "https://meshiagare.tokyo/wp-content/uploads/2019/09/shakeben02.jpg",
-    category: "Mains",
-    description: "Teriyaki glazed salmon, jasmine rice, sautéed greens, sesame seeds.",
-    calories: 540,
-    protein: 34,
-    carbs: 50,
-    fats: 20,
-    price: 459,
-  },
-  {
-    id: "m6",
-    title: "Protein Pancake Bites",
-    img: "https://www.kingarthurbaking.com/sites/default/files/styles/featured_image/public/2021-08/Pancake-Bites_0437_.jpg?itok=6eRWuqbb",
-    category: "Snacks",
-    description: "Mini oat pancakes with whey, maple dip on the side.",
-    calories: 300,
-    protein: 19,
-    carbs: 42,
-    fats: 7,
-    price: 179,
-  },
-  {
-    id: "m7",
-    title: "Hummus & Pita",
-    img: "https://tablenspoon.com/wp-content/uploads/2018/11/IMG_2411.jpg",
-    category: "Snacks",
-    description: "Creamy hummus, paprika oil, warm pita triangles.",
-    calories: 380,
-    protein: 12,
-    carbs: 46,
-    fats: 14,
-    price: 159,
-  },
-  {
-    id: "m8",
-    title: "Cold Coffee (No Sugar)",
-    img: "https://www.heinens.com/content/uploads/2022/05/Mocha-Iced-Coffee-with-Vanilla-Cold-Foam-800x550-1.jpg",
-    category: "Drinks",
-    description: "Slow-brewed coffee shaken with milk and ice. Unsweetened by default.",
-    calories: 90,
-    protein: 6,
-    carbs: 8,
-    fats: 3,
-    price: 129,
-  },
-];
-
-const CATEGORIES = ["All", ...Array.from(new Set(MENU.map((m) => m.category)))];
 
 // Demo users for manual auth
 const DEMO_USERS = [
   { id: "user1", email: "john@example.com", phone: "+919876543210", password: "password123", name: "John Doe" },
   { id: "user2", email: "jane@example.com", phone: "+919876543211", password: "password123", name: "Jane Smith" },
-  { id: "demo", email: "demo@example.com", phone: "+919999999999", password: "demo", name: "Demo User" }
+  { id: "demo", email: "demo@example.com", phone: "+919999999999", password: "demo", name: "Demo User" },
+  { id: "aryan", email: "aryan", phone: "9372329966", password: "pass", name: "Aryan Motwani" }
 ];
 
 const STATUS_CONFIG = {
@@ -121,6 +20,11 @@ const STATUS_CONFIG = {
 };
 
 export default function FoodOrderingApp({setPage}) {
+  // Menu data states
+  const [menuItems, setMenuItems] = useState([]);
+  const [loadingMenu, setLoadingMenu] = useState(true);
+  const [menuError, setMenuError] = useState(null);
+
   // Auth states
   const [user, setUser] = useState(null);
   const [showLogin, setShowLogin] = useState(false);
@@ -152,6 +56,35 @@ export default function FoodOrderingApp({setPage}) {
   // Notification states
   const [notifications, setNotifications] = useState([]);
 
+  // Generate categories from fetched menu items
+  const CATEGORIES = useMemo(() => {
+    if (menuItems.length === 0) return ["All"];
+    return ["All", ...Array.from(new Set(menuItems.map((m) => m.category)))];
+  }, [menuItems]);
+
+  // Fetch menu items from Supabase
+  const fetchMenuItems = async () => {
+    try {
+      setLoadingMenu(true);
+      setMenuError(null);
+      
+      const { data, error } = await supabase
+        .from('Food') // Your table name
+        .select('*');
+      
+      if (error) {
+        throw error;
+      }
+      
+      setMenuItems(data || []);
+    } catch (error) {
+      console.error('Error fetching menu items:', error);
+      setMenuError('Failed to load menu items');
+    } finally {
+      setLoadingMenu(false);
+    }
+  };
+
   // Check for existing user session on load
   useEffect(() => {
     const savedUser = localStorage.getItem('currentUser');
@@ -164,115 +97,50 @@ export default function FoodOrderingApp({setPage}) {
   }, []);
 
   // Set up real-time order status notifications
-  // Enhanced real-time subscription
-useEffect(() => {
-  const insertMenuData = async () => {
-  try {
-    // First, check what items already exist in the database
-    const { data: existingItems, error: fetchError } = await supabase
-      .from('Food')
-      .select('title');
+  useEffect(() => {
+    if (!user) return;
 
-    if (fetchError) throw fetchError;
-
-    // Create a Set of existing titles for fast lookup
-    const existingTitles = new Set(existingItems.map(item => item.title));
-
-    // Filter out items that already exist
-    const newItems = MENU.filter(item => !existingTitles.has(item.title));
-
-    if (newItems.length === 0) {
-      console.log('✅ All menu items already exist in database. No insertions needed.');
-      return { success: true, message: 'No new items to insert', inserted: 0 };
-    }
-
-    console.log(`📝 Found ${newItems.length} new items to insert (${MENU.length - newItems.length} already exist)`);
-
-    // Transform only the new items for database insertion
-    const menuForDB = newItems.map(item => ({
-      title: item.title,
-      category: item.category,
-      img: item.img,
-      description: item.description,
-      calories: item.calories,
-      protein: item.protein,
-      carbs: item.carbs,
-      fats: item.fats,
-      price: item.price
-    }));
-
-    // Insert only the new items
-    const { data, error } = await supabase
-      .from('Food')
-      .insert(menuForDB)
-      .select();
-
-    if (error) throw error;
-
-    console.log(`✅ Successfully inserted ${data.length} new menu items!`);
-    console.log('Inserted items:', data.map(item => item.title));
-    
-    return { 
-      success: true, 
-      data, 
-      inserted: data.length,
-      skipped: MENU.length - newItems.length
-    };
-
-  } catch (error) {
-    console.error('❌ Error inserting menu data:', error);
-    return { success: false, error };
-  }
-};
-
-// insertMenuData();
-  if (!user) return;
-
-  const subscription = supabase
-    .channel('user-orders-channel')
-    .on('postgres_changes', 
-      { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'orders',
-        filter: `user_id=eq.${user.id}`
-      }, 
-      (payload) => {
-        console.log('Order status updated:', payload);
-        const { new: newOrder, old: oldOrder } = payload;
-        
-        if (newOrder.status !== oldOrder.status) {
-          const statusConfig = STATUS_CONFIG[newOrder.status] || STATUS_CONFIG.pending;
+    const subscription = supabase
+      .channel('user-orders-channel')
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'orders',
+          filter: `user_id=eq.${user.id}`
+        }, 
+        (payload) => {
+          console.log('Order status updated:', payload);
+          const { new: newOrder, old: oldOrder } = payload;
           
-          // Enhanced notification with special styling for order updates
-          addNotification(
-            `🎉 Order Update!`,
-            `Order #${newOrder.id} is now ${statusConfig.label} ${statusConfig.icon}`,
-            'order_update'
-          );
-          
-          if (showOrderHistory) {
-            fetchUserOrders();
+          if (newOrder.status !== oldOrder.status) {
+            const statusConfig = STATUS_CONFIG[newOrder.status] || STATUS_CONFIG.pending;
+            
+            addNotification(
+              `🎉 Order Update!`,
+              `Order #${newOrder.id} is now ${statusConfig.label} ${statusConfig.icon}`,
+              'order_update'
+            );
+            
+            if (showOrderHistory) {
+              fetchUserOrders();
+            }
           }
         }
-      }
-    )
-    .subscribe();
+      )
+      .subscribe();
 
-  return () => {
-    subscription.unsubscribe();
-  };
-}, [user, showOrderHistory]);
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [user, showOrderHistory]);
 
-
-  // Viewport setup
+  // Viewport setup and fetch menu items
   useEffect(() => {
-    const getItems = async () => {
-      const { data, error } = await supabase.from('Food Items').select('*');
-      console.log(data);
-    }
-    getItems()
+    // Fetch menu items when component mounts
+    fetchMenuItems();
 
+    // Viewport setup
     const meta = document.querySelector('meta[name="viewport"]');
     if (meta) {
       meta.setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover");
@@ -322,26 +190,25 @@ useEffect(() => {
   };
 
   // Enhanced notification with sound and better styling
-const addNotification = (title, message, type = 'success') => {
-  const id = Date.now();
-  const newNotification = { id, title, message, timestamp: new Date(), type };
-  setNotifications(prev => [newNotification, ...prev.slice(0, 4)]);
-  
-  // Play notification sound (optional)
-  if (type === 'order_update') {
-    try {
-      const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBzqN0/LVgzMGKnPB7uOWRgwNZ7ng8qlLDwxMnuTuyV0cBzaL0/LVgzUGKnDA7eSUSQoLZLLm9KtLDgxDnuPuz1ogBTuJ0/LWgDYGJ2TA7eaUSwkJZLLm9KxNDg==');
-      audio.volume = 0.3;
-      audio.play().catch(() => {});
-    } catch (e) {}
-  }
-  
-  // Auto-remove after 6 seconds for order updates (longer than regular notifications)
-  setTimeout(() => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  }, type === 'order_update' ? 6000 : 5000);
-};
-
+  const addNotification = (title, message, type = 'success') => {
+    const id = Date.now();
+    const newNotification = { id, title, message, timestamp: new Date(), type };
+    setNotifications(prev => [newNotification, ...prev.slice(0, 4)]);
+    
+    // Play notification sound (optional)
+    if (type === 'order_update') {
+      try {
+        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBzqN0/LVgzMGKnPB7uOWRgwNZ7ng8qlLDwxMnuTuyV0cBzaL0/LVgzUGKnDA7eSUSQoLZLLm9KtLDgxDnuPuz1ogBTuJ0/LWgDYGJ2TA7eaUSwkJZLLm9KxNDg==');
+        audio.volume = 0.3;
+        audio.play().catch(() => {});
+      } catch (e) {}
+    }
+    
+    // Auto-remove after 6 seconds for order updates (longer than regular notifications)
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, type === 'order_update' ? 6000 : 5000);
+  };
 
   // Order history functions
   const fetchUserOrders = async () => {
@@ -424,7 +291,7 @@ const addNotification = (title, message, type = 'success') => {
   const canContinue = name.trim().length >= 2 && /^\+?\d{8,15}$/.test(phone.replace(/\s/g, ""));
 
   const itemsFiltered = useMemo(() => {
-    const byCategory = category === "All" ? MENU : MENU.filter((i) => i.category === category);
+    const byCategory = category === "All" ? menuItems : menuItems.filter((i) => i.category === category);
     if (!query.trim()) return byCategory;
     const q = query.toLowerCase();
     return byCategory.filter(
@@ -433,9 +300,9 @@ const addNotification = (title, message, type = 'success') => {
         i.description.toLowerCase().includes(q) ||
         i.category.toLowerCase().includes(q)
     );
-  }, [category, query]);
+  }, [category, query, menuItems]);
 
-  const cartList = useMemo(() => MENU.filter((i) => cart[i.id] > 0), [cart]);
+  const cartList = useMemo(() => menuItems.filter((i) => cart[i.id] > 0), [cart, menuItems]);
 
   const totals = useMemo(() => {
     return cartList.reduce(
@@ -463,67 +330,65 @@ const addNotification = (title, message, type = 'success') => {
 
   return (
     <div className="min-h-screen bg-neutral-50 text-neutral-900 selection:bg-black selection:text-white">
-      {/* Notifications */}
       {/* Enhanced Notifications */}
-<AnimatePresence>
-  {notifications.map((notification) => (
-    <motion.div
-      key={notification.id}
-      initial={{ opacity: 0, y: -50, x: 50, scale: 0.8 }}
-      animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -50, x: 50, scale: 0.8 }}
-      transition={{ type: "spring", stiffness: 200, damping: 20 }}
-      className={`fixed top-20 right-4 z-50 rounded-2xl p-4 shadow-2xl max-w-sm border-2 ${
-        notification.type === 'order_update' 
-          ? 'bg-gradient-to-r from-blue-50 to-green-50 border-green-300' 
-          : 'bg-white border-green-200'
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        <div className={`h-10 w-10 rounded-full grid place-items-center ${
-          notification.type === 'order_update' 
-            ? 'bg-gradient-to-r from-blue-100 to-green-100' 
-            : 'bg-green-100'
-        }`}>
-          {notification.type === 'order_update' ? (
-            <div className="relative">
-              <Bell className="h-5 w-5 text-green-700" />
-              <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ repeat: 3, duration: 0.5 }}
-                className="absolute inset-0"
+      <AnimatePresence>
+        {notifications.map((notification) => (
+          <motion.div
+            key={notification.id}
+            initial={{ opacity: 0, y: -50, x: 50, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -50, x: 50, scale: 0.8 }}
+            transition={{ type: "spring", stiffness: 200, damping: 20 }}
+            className={`fixed top-20 right-4 z-50 rounded-2xl p-4 shadow-2xl max-w-sm border-2 ${
+              notification.type === 'order_update' 
+                ? 'bg-gradient-to-r from-blue-50 to-green-50 border-green-300' 
+                : 'bg-white border-green-200'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div className={`h-10 w-10 rounded-full grid place-items-center ${
+                notification.type === 'order_update' 
+                  ? 'bg-gradient-to-r from-blue-100 to-green-100' 
+                  : 'bg-green-100'
+              }`}>
+                {notification.type === 'order_update' ? (
+                  <div className="relative">
+                    <Bell className="h-5 w-5 text-green-700" />
+                    <motion.div
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ repeat: 3, duration: 0.5 }}
+                      className="absolute inset-0"
+                    >
+                      <Bell className="h-5 w-5 text-green-600" />
+                    </motion.div>
+                  </div>
+                ) : (
+                  <Bell className="h-4 w-4 text-green-600" />
+                )}
+              </div>
+              <div className="flex-1">
+                <p className={`font-bold text-sm ${
+                  notification.type === 'order_update' ? 'text-green-800' : 'text-gray-800'
+                }`}>
+                  {notification.title}
+                </p>
+                <p className="text-xs text-gray-700 mt-1 font-medium">
+                  {notification.message}
+                </p>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  {new Date(notification.timestamp).toLocaleTimeString()}
+                </p>
+              </div>
+              <button
+                onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))}
+                className="h-6 w-6 rounded-full hover:bg-gray-200 grid place-items-center"
               >
-                <Bell className="h-5 w-5 text-green-600" />
-              </motion.div>
+                <X className="h-3 w-3 text-gray-500" />
+              </button>
             </div>
-          ) : (
-            <Bell className="h-4 w-4 text-green-600" />
-          )}
-        </div>
-        <div className="flex-1">
-          <p className={`font-bold text-sm ${
-            notification.type === 'order_update' ? 'text-green-800' : 'text-gray-800'
-          }`}>
-            {notification.title}
-          </p>
-          <p className="text-xs text-gray-700 mt-1 font-medium">
-            {notification.message}
-          </p>
-          <p className="text-[10px] text-gray-500 mt-1">
-            {new Date(notification.timestamp).toLocaleTimeString()}
-          </p>
-        </div>
-        <button
-          onClick={() => setNotifications(prev => prev.filter(n => n.id !== notification.id))}
-          className="h-6 w-6 rounded-full hover:bg-gray-200 grid place-items-center"
-        >
-          <X className="h-3 w-3 text-gray-500" />
-        </button>
-      </div>
-    </motion.div>
-  ))}
-</AnimatePresence>
-
+          </motion.div>
+        ))}
+      </AnimatePresence>
 
       {/* Header */}
       <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-neutral-200">
@@ -540,6 +405,14 @@ const addNotification = (title, message, type = 'success') => {
           
           {user ? (
             <div className="flex items-center gap-2">
+              <button
+                onClick={fetchMenuItems}
+                className="h-10 w-10 rounded-2xl border border-neutral-300 bg-white grid place-items-center"
+                aria-label="Refresh Menu"
+                disabled={loadingMenu}
+              >
+                <RefreshCw className={`h-5 w-5 ${loadingMenu ? 'animate-spin' : ''}`} />
+              </button>
               <button
                 onClick={openOrderHistory}
                 className="h-10 w-10 rounded-2xl border border-neutral-300 bg-white grid place-items-center"
@@ -601,11 +474,6 @@ const addNotification = (title, message, type = 'success') => {
               >
                 Login to Continue
               </button>
-              <div className="mt-4 p-3 bg-blue-50 rounded-2xl border border-blue-200">
-                <p className="text-xs text-blue-700">
-                  {/* <strong>Demo Login:</strong> demo@example.com / password: demo */}
-                </p>
-              </div>
             </div>
           </motion.div>
         ) : (
@@ -686,7 +554,6 @@ const addNotification = (title, message, type = 'success') => {
                     >
                       Make Your Own Meal
                     </button>
-                    
                   </div>
 
                   <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-2xl border bg-white">
@@ -698,106 +565,132 @@ const addNotification = (title, message, type = 'success') => {
                       className="flex-1 outline-none bg-transparent text-sm"
                     />
                   </div>
-                </div>
 
-                {/* Categories */}
-                <div className="px-4 mt-4 overflow-x-auto no-scrollbar">
-                  <div className="flex gap-2 w-max">
-                    {CATEGORIES.map((cat) => (
-                      <button
-                        key={cat}
-                        onClick={() => setCategory(cat)}
-                        className={`px-3 py-2 rounded-2xl border text-sm whitespace-nowrap transition active:scale-[0.98] ${
-                          category === cat ? "bg-black text-white border-black" : "bg-white border-neutral-300"
-                        }`}
+                  {/* Loading state */}
+                  {loadingMenu && (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto mb-2"></div>
+                      <p className="text-sm text-neutral-600">Loading menu...</p>
+                    </div>
+                  )}
+
+                  {/* Error state */}
+                  {menuError && (
+                    <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mt-4">
+                      <p className="text-red-700 text-sm">{menuError}</p>
+                      <button 
+                        onClick={fetchMenuItems}
+                        className="mt-2 text-red-600 text-sm font-medium"
                       >
-                        {cat}
+                        Try Again
                       </button>
-                    ))}
-                  </div>
-                </div>
+                    </div>
+                  )}
 
-                {/* Menu Grid */}
-                <div className="px-4 mt-4 grid grid-cols-1 gap-3">
-                  <AnimatePresence>
-                    {itemsFiltered.map((item) => (
-                      <motion.div
-                        key={item.id}
-                        layout
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="rounded-3xl border border-neutral-200 bg-white p-3 shadow-sm"
-                      >
-                        <div className="flex gap-3">
-                          <img
-                            src={item.img}
-                            alt={item.title}
-                            className="h-20 w-20 rounded-2xl object-cover object-center flex-shrink-0"
-                            loading="lazy"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <h3 className="font-semibold truncate">{item.title}</h3>
-                                <p className="text-xs text-neutral-500 mt-0.5">{item.category}</p>
-                              </div>
-                              {cart[item.id] ? (
-                                <QtyControl
-                                  qty={cart[item.id]}
-                                  onDec={() => decrement(item.id)}
-                                  onInc={() => increment(item.id)}
-                                />
-                              ) : (
-                                <button
-                                  onClick={() => increment(item.id)}
-                                  className="px-3 py-1.5 text-sm rounded-xl bg-black text-white active:scale-[0.98]"
-                                >
-                                  Add
-                                </button>
-                              )}
-                            </div>
-
-                            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-neutral-600">
-                              <span>🔥 {item.calories} kcal</span>
-                              <span>🥚 {item.protein}g P</span>
-                              <span>🌾 {item.carbs}g C</span>
-                              <span>🧈 {item.fats}g F</span>
-                              <span>₹ {item.price}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Description toggle */}
-                        <button
-                          onClick={() =>
-                            setDescOpen((d) => ({ ...d, [item.id]: !d[item.id] }))
-                          }
-                          className="mt-2 w-full flex items-center justify-center gap-1 text-sm text-neutral-700"
-                        >
-                          <ChevronDown
-                            className={`h-4 w-4 transition-transform ${descOpen[item.id] ? "rotate-180" : ""}`}
-                          />
-                          <span>Description</span>
-                        </button>
-                        <AnimatePresence initial={false}>
-                          {descOpen[item.id] && (
-                            <motion.p
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              className="text-sm text-neutral-600 overflow-hidden px-1"
+                  {/* Show categories and menu items only when not loading and no error */}
+                  {!loadingMenu && !menuError && (
+                    <>
+                      {/* Categories */}
+                      <div className="mt-4 overflow-x-auto no-scrollbar">
+                        <div className="flex gap-2 w-max">
+                          {CATEGORIES.map((cat) => (
+                            <button
+                              key={cat}
+                              onClick={() => setCategory(cat)}
+                              className={`px-3 py-2 rounded-2xl border text-sm whitespace-nowrap transition active:scale-[0.98] ${
+                                category === cat ? "bg-black text-white border-black" : "bg-white border-neutral-300"
+                              }`}
                             >
-                              {item.description}
-                            </motion.p>
-                          )}
-                        </AnimatePresence>
-                      </motion.div>
-                    ))}
-                  </AnimatePresence>
+                              {cat}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
 
-                  {itemsFiltered.length === 0 && (
-                    <p className="text-center text-sm text-neutral-500 py-10">No items match your search.</p>
+                      {/* Menu Grid */}
+                      <div className="mt-4 grid grid-cols-1 gap-3">
+                        <AnimatePresence>
+                          {itemsFiltered.map((item) => (
+                            <motion.div
+                              key={item.id}
+                              layout
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              className="rounded-3xl border border-neutral-200 bg-white p-3 shadow-sm"
+                            >
+                              <div className="flex gap-3">
+                                <img
+                                  src={item.img}
+                                  alt={item.title}
+                                  className="h-20 w-20 rounded-2xl object-cover object-center flex-shrink-0"
+                                  loading="lazy"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                      <h3 className="font-semibold truncate">{item.title}</h3>
+                                      <p className="text-xs text-neutral-500 mt-0.5">{item.category}</p>
+                                    </div>
+                                    {cart[item.id] ? (
+                                      <QtyControl
+                                        qty={cart[item.id]}
+                                        onDec={() => decrement(item.id)}
+                                        onInc={() => increment(item.id)}
+                                      />
+                                    ) : (
+                                      <button
+                                        onClick={() => increment(item.id)}
+                                        className="px-3 py-1.5 text-sm rounded-xl bg-black text-white active:scale-[0.98]"
+                                      >
+                                        Add
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-neutral-600">
+                                    <span>🔥 {item.calories} kcal</span>
+                                    <span>🥚 {item.protein}g P</span>
+                                    <span>🌾 {item.carbs}g C</span>
+                                    <span>🧈 {item.fats}g F</span>
+                                    <span>₹ {item.price}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Description toggle */}
+                              <button
+                                onClick={() =>
+                                  setDescOpen((d) => ({ ...d, [item.id]: !d[item.id] }))
+                                }
+                                className="mt-2 w-full flex items-center justify-center gap-1 text-sm text-neutral-700"
+                              >
+                                <ChevronDown
+                                  className={`h-4 w-4 transition-transform ${descOpen[item.id] ? "rotate-180" : ""}`}
+                                />
+                                <span>Description</span>
+                              </button>
+                              <AnimatePresence initial={false}>
+                                {descOpen[item.id] && (
+                                  <motion.p
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    className="text-sm text-neutral-600 overflow-hidden px-1"
+                                  >
+                                    {item.description}
+                                  </motion.p>
+                                )}
+                              </AnimatePresence>
+                            </motion.div>
+                          ))}
+                        </AnimatePresence>
+
+                        {itemsFiltered.length === 0 && !loadingMenu && (
+                          <p className="text-center text-sm text-neutral-500 py-10">No items match your search.</p>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
               </motion.section>
@@ -881,7 +774,7 @@ const addNotification = (title, message, type = 'success') => {
                       type="text"
                       value={loginData.identifier}
                       onChange={(e) => setLoginData(prev => ({ ...prev, identifier: e.target.value }))}
-                      placeholder="demo@example.com or +919999999999"
+                      placeholder="Email or Phone Number"
                       className="w-full px-4 py-3 border border-neutral-300 rounded-2xl focus:ring-2 focus:ring-black outline-none"
                       required
                       onClick={(e) => e.stopPropagation()}
@@ -895,20 +788,22 @@ const addNotification = (title, message, type = 'success') => {
                       type="password"
                       value={loginData.password}
                       onChange={(e) => setLoginData(prev => ({ ...prev, password: e.target.value }))}
-                      placeholder="Enter your password"
+                      placeholder="Password"
                       className="w-full px-4 py-3 border border-neutral-300 rounded-2xl focus:ring-2 focus:ring-black outline-none"
                       required
                       onClick={(e) => e.stopPropagation()}
                     />
                   </div>
                   
-                  <div className="bg-blue-50 p-3 rounded-2xl border border-blue-200">
+                  {/* Demo id and Pass Indicator  */}
+
+                  {/* <div className="bg-blue-50 p-3 rounded-2xl border border-blue-200">
                     <p className="text-xs text-blue-700 text-center">
                       <strong>Demo Credentials:</strong><br/>
                       Email: demo@example.com<br/>
                       Password: demo
                     </p>
-                  </div>
+                  </div> */}
 
                   <button
                     type="submit"

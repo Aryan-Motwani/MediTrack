@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import FoodMenu from "./components/FoodMenu.js";
 import MyomMeal from "./components/MyomMeal.js";
 import OrdersPage from "./components/Orders.js";
+import MenuEdit from "./components/MenuEdit.js";
 
 // Internal router for setPage-based navigation
 function InternalPages({ page, setPage }) {
@@ -24,7 +25,7 @@ function App() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
-    }, 3000);
+    }, 30);
 
     return () => clearTimeout(timer);
   }, []);
@@ -54,8 +55,11 @@ function App() {
         {!showSplash && (
           <Routes>
             {/* URL-based route for orders */}
-            <Route path="/orders" element={<OrdersPage setPage={setPage} />} />
             
+            <Route path="/admin" element={<MenuEdit setPage={setPage} />} />
+
+            <Route path="/orders" element={<OrdersPage setPage={setPage} />} />
+
             {/* Catch-all route for internal state-based navigation */}
             <Route path="/*" element={<InternalPages page={page} setPage={setPage} />} />
           </Routes>
