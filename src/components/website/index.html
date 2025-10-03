@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CYC - Count Your Calories | BMI Calculator & Fitness Guide</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <h2>CYC</h2>
+                <span>Count Your Calories</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="#calculator">BMI Calculator</a></li>
+                <li><a href="#goals">Fitness Goals</a></li>
+                <li><a href="#nutrition">Nutrition Guide</a></li>
+                <li><a href="#tools">Tools</a></li>
+                <li><a href="#about">About</a></li>
+            </ul>
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-container">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1>Transform Your Health Journey</h1>
+                    <p>Calculate your BMI instantly and discover personalized fitness plans with our friendly coaches</p>
+                    <div class="hero-features">
+                        <div class="feature-item">
+                            <div class="feature-icon">📊</div>
+                            <span>Instant BMI Calculation</span>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-icon">🎯</div>
+                            <span>Personalized Goals</span>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-icon">👨‍⚕️</div>
+                            <span>Expert Guidance</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- BMI Calculator Card -->
+                <div class="calculator-card">
+                    <div class="card-header">
+                        <h3>BMI Calculator</h3>
+                        <div class="coach-avatar">
+                            <div class="avatar">👨‍⚕️</div>
+                            <span>Coach CYC</span>
+                        </div>
+                    </div>
+                    
+                    <form id="bmiForm" class="calculator-form">
+                        <div class="input-group">
+                            <div class="input-field">
+                                <label for="height">Height</label>
+                                <div class="input-wrapper">
+                                    <input type="number" id="height" placeholder="170" required>
+                                    <select id="heightUnit">
+                                        <option value="cm">cm</option>
+                                        <option value="ft">ft</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="input-field">
+                                <label for="weight">Weight</label>
+                                <div class="input-wrapper">
+                                    <input type="number" id="weight" placeholder="70" required>
+                                    <select id="weightUnit">
+                                        <option value="kg">kg</option>
+                                        <option value="lbs">lbs</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="calculate-btn">
+                            <span>Calculate BMI</span>
+                            <div class="btn-icon">→</div>
+                        </button>
+                    </form>
+                    
+                    <div id="result" class="result-section hidden">
+                        <div class="result-value">
+                            <span class="bmi-number" id="bmiValue">0</span>
+                            <span class="bmi-category" id="bmiCategory">Normal</span>
+                        </div>
+                        <div class="result-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progressFill"></div>
+                                <div class="progress-indicator" id="progressIndicator"></div>
+                            </div>
+                            <div class="progress-labels">
+                                <span>Underweight</span>
+                                <span>Normal</span>
+                                <span>Overweight</span>
+                                <span>Obese</span>
+                            </div>
+                        </div>
+                        <button class="get-plan-btn" onclick="scrollToGoals()">Get My Fitness Plan</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Education Preview -->
+    <section class="education-preview">
+        <div class="container">
+            <h2>Learn the Fundamentals</h2>
+            <p>Master nutrition basics with our friendly character guides</p>
+            
+            <div class="education-grid">
+                <div class="edu-card" data-topic="calories">
+                    <div class="card-icon">🔥</div>
+                    <h3>What are Calories?</h3>
+                    <p>Discover how energy units fuel your body and daily activities</p>
+                    <div class="card-character">
+                        <div class="character-avatar">👩‍🏫</div>
+                        <span>Coach Ava</span>
+                    </div>
+                </div>
+                
+                <div class="edu-card" data-topic="deficit">
+                    <div class="card-icon">📉</div>
+                    <h3>Calorie Deficit</h3>
+                    <p>Learn how to create the perfect deficit for healthy weight loss</p>
+                    <div class="card-character">
+                        <div class="character-avatar">💪</div>
+                        <span>Trainer Evan</span>
+                    </div>
+                </div>
+                
+                <div class="edu-card" data-topic="macros">
+                    <div class="card-icon">🥗</div>
+                    <h3>Protein & Macros</h3>
+                    <p>Understand the building blocks of optimal nutrition</p>
+                    <div class="card-character">
+                        <div class="character-avatar">👩‍🍳</div>
+                        <span>Trainer Mira</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Goal Setting Section -->
+    <section id="goals" class="goal-setting">
+        <div class="container">
+            <div class="section-header">
+                <h2>What's Your Fitness Goal?</h2>
+                <p>Choose your path and get a personalized plan designed just for you</p>
+            </div>
+            
+            <div class="goals-grid">
+                <div class="goal-card" data-goal="lose-weight">
+                    <div class="goal-icon">🎯</div>
+                    <h3>Lose Weight</h3>
+                    <p>Create a sustainable calorie deficit and burn fat effectively</p>
+                    <ul class="goal-features">
+                        <li>Calorie deficit planning</li>
+                        <li>Fat-burning workouts</li>
+                        <li>Progress tracking</li>
+                    </ul>
+                </div>
+                
+                <div class="goal-card" data-goal="gain-muscle">
+                    <div class="goal-icon">💪</div>
+                    <h3>Build Muscle</h3>
+                    <p>Optimize protein intake and strength training for lean gains</p>
+                    <ul class="goal-features">
+                        <li>Muscle-building nutrition</li>
+                        <li>Strength training plans</li>
+                        <li>Recovery optimization</li>
+                    </ul>
+                </div>
+                
+                <div class="goal-card" data-goal="maintain">
+                    <div class="goal-icon">⚖️</div>
+                    <h3>Maintain Health</h3>
+                    <p>Stay fit and healthy with balanced nutrition and exercise</p>
+                    <ul class="goal-features">
+                        <li>Balanced meal plans</li>
+                        <li>Flexible workouts</li>
+                        <li>Lifestyle integration</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <h3>CYC</h3>
+                    <p>Count Your Calories</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-column">
+                        <h4>Tools</h4>
+                        <ul>
+                            <li><a href="#">BMI Calculator</a></li>
+                            <li><a href="#">Calorie Calculator</a></li>
+                            <li><a href="#">Macro Calculator</a></li>
+                        </ul>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Learn</h4>
+                        <ul>
+                            <li><a href="#">Nutrition Guide</a></li>
+                            <li><a href="#">Exercise Plans</a></li>
+                            <li><a href="#">Health Tips</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
