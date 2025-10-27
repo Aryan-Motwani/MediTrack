@@ -12,7 +12,8 @@ function InternalPages({ page, setPage }) {
     case "menu":
       return <FoodMenu setPage={setPage} />;
     case "myom":
-      return <MyomMeal setPage={setPage} />;
+      return <MyomMeal onBack={() => setPage("menu")} setPage={setPage} />;
+
     default:
       return <Navigate to="/" replace />;
   }

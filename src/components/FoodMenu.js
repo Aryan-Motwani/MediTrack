@@ -1,8 +1,25 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingCart, Plus, Minus, X, ChevronDown, Search, CheckCircle, User, LogOut, History, Bell, RefreshCw } from "lucide-react";
+import {  ShoppingCart, Plus, Minus, X, ChevronDown, Search, CheckCircle, User, LogOut, History, Bell, RefreshCw,
+  // Add all these different icons:
+  UtensilsCrossed, Pizza, Soup, Sandwich, Cake, Coffee, Salad, Hamburger,
+  Martini
+   } from "lucide-react";
 import { supabase } from "../createClient";
 import { data } from "autoprefixer";
+import SubscriptionCalendar from "./SubscriptionCalendar";
+
+import { auth, googleProvider } from './firebase';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged
+} from 'firebase/auth';
+
+
+
 
 // Demo users for manual auth
 const DEMO_USERS = [
@@ -25,9 +42,15 @@ export default function FoodMenu({ setPage }) {
   const [menuItems, setMenuItems] = useState([]);
   const [loadingMenu, setLoadingMenu] = useState(true);
   const [menuError, setMenuError] = useState(null);
+
   const [user, setUser] = useState(null);
+const [loading, setLoading] = useState(true);
+const [loginData, setLoginData] = useState({ email: "", password: "" });
+const [isSignUp, setIsSignUp] = useState(false);
+
+
   const [showLogin, setShowLogin] = useState(false);
-  const [loginData, setLoginData] = useState({ identifier: "", password: "" });
+  // const [loginData, setLoginData] = useState({ identifier: "", password: "" });
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [step, setStep] = useState("menu");
   const [name, setName] = useState("");
@@ -49,6 +72,18 @@ export default function FoodMenu({ setPage }) {
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [notifications, setNotifications] = useState([]);
 
+
+// ADD THESE NEW STATES after your existing states:
+const [subscriptionCart, setSubscriptionCart] = useState({});
+const [showSubscriptionSetup, setShowSubscriptionSetup] = useState(false);
+const [subscriptionDuration, setSubscriptionDuration] = useState(7);
+const [subscriptionTimeSlot, setSubscriptionTimeSlot] = useState('13:00');
+
+
+
+  const [currentBanner, setCurrentBanner] = useState(0);
+
+
   // SUBSCRIPTIONS feature states
   const [subscriptionTab, setSubscriptionTab] = useState(false); // false=Menu, true=Subscriptions
   const [activeSub, setActiveSub] = useState(null);
@@ -57,6 +92,219 @@ export default function FoodMenu({ setPage }) {
     days: 7,
     slot: "13:00"
   });
+
+  // payment
+  
+  // ADD THESE NEW FUNCTIONS after addNotification:
+
+// Subscription cart list
+const subscriptionCartList = useMemo(() => {
+  return menuItems.filter(item => subscriptionCart[item.id]);
+}, [subscriptionCart, menuItems]);
+
+// Subscription totals
+const subscriptionTotals = useMemo(() => {
+  let price = 0, calories = 0, protein = 0, carbs = 0, fats = 0;
+  
+  subscriptionCartList.forEach(item => {
+    const qty = subscriptionCart[item.id];
+    price += item.price * qty;
+    calories += item.calories * qty;
+    protein += item.protein * qty;
+    carbs += item.carbs * qty;
+    fats += item.fats * qty;
+  });
+  
+  return {
+    price: Math.round(price),
+    calories: Math.round(calories),
+    protein: Math.round(protein),
+    carbs: Math.round(carbs),
+    fats: Math.round(fats)
+  };
+}, [subscriptionCart, subscriptionCartList]);
+
+// Increment subscription item
+const incrementSubscription = (id) => {
+  setSubscriptionCart(prev => ({
+    ...prev,
+    [id]: (prev[id] || 0) + 1
+  }));
+};
+
+// Decrement subscription item
+const decrementSubscription = (id) => {
+  setSubscriptionCart(prev => {
+    const newQty = (prev[id] || 0) - 1;
+    if (newQty <= 0) {
+      const { [id]: removed, ...rest } = prev;
+      return rest;
+    }
+    return { ...prev, [id]: newQty };
+  });
+};
+
+// Start subscription function
+const startSubscription = async () => {
+  if (!user) {
+    addNotification("Error", "Please login first", 'error');
+    return;
+  }
+
+  if (subscriptionCartList.length === 0) {
+    addNotification("Error", "Please add meals to your subscription", 'error');
+    return;
+  }
+
+  try {
+    // Prepare subscription data in your existing format
+    const subscriptionData = {
+      userid: user.id,
+      fooditems: subscriptionCartList.map(item => ({
+        itemid: item.id,
+        quantity: subscriptionCart[item.id]
+      })),
+      days: subscriptionDuration,
+      slot: subscriptionTimeSlot,
+      startdate: new Date().toISOString().split('T')[0],
+      status: 'active'
+    };
+
+    const { error } = await supabase
+      .from('subscriptions')
+      .insert([subscriptionData]);
+
+    if (error) throw error;
+
+    addNotification("Success", `Your ${subscriptionDuration}-day meal subscription has been started!`);
+    
+    // Clear cart and close modal
+    setSubscriptionCart({});
+    setShowSubscriptionSetup(false);
+    
+    // Refresh subscriptions to show the new one
+    fetchUserSubscriptions();
+
+  } catch (error) {
+    console.error('Error starting subscription:', error);
+    addNotification("Error", "Failed to start subscription. Please try again.", 'error');
+  }
+};
+
+// Add this if it doesn't exist
+const fetchUserSubscriptions = async () => {
+  if (!user) return;
+  
+  try {
+    const { data, error } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('userid', user.id)
+      .eq('status', 'active')
+      .single();
+
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error fetching subscriptions:', error);
+      return;
+    }
+
+    setActiveSub(data);
+  } catch (error) {
+    console.error('Error:', error);
+  }
+};
+
+
+  // Auth state listener
+useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    if (firebaseUser) {
+      // Convert Firebase user to your app's user format
+      const userData = {
+        id: firebaseUser.uid,
+        email: firebaseUser.email,
+        name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+        phone: firebaseUser.phoneNumber || null
+      };
+      setUser(userData);
+      setName(userData.name);
+    } else {
+      setUser(null);
+    }
+    setLoading(false);
+  });
+  
+  return () => unsubscribe();
+}, []);
+
+// Auto carousel for banners
+useEffect(() => {
+  const banners = [
+    "https://images.unsplash.com/photo-1565299624946-b28f40a0ca4b?w=800&h=200&fit=crop", // Pizza
+    "https://images.unsplash.com/photo-1563379091339-03246963d203?w=800&h=200&fit=crop", // Biryani
+    "https://images.unsplash.com/photo-1551782450-17144efb9c50?w=800&h=200&fit=crop", // Burger
+  ];
+  
+  const interval = setInterval(() => {
+    setCurrentBanner(prev => (prev + 1) % banners.length);
+  }, 3000); // Change every 3 seconds
+  
+  return () => clearInterval(interval);
+}, []);
+
+
+// Email/Password Login
+const handleEmailLogin = async (e) => {
+  e.preventDefault();
+  setIsLoggingIn(true);
+  
+  try {
+    if (isSignUp) {
+      await createUserWithEmailAndPassword(auth, loginData.email, loginData.password);
+      addNotification("Account Created", "Welcome to our food delivery app!");
+    } else {
+      await signInWithEmailAndPassword(auth, loginData.email, loginData.password);
+      addNotification("Welcome Back", "Successfully logged in!");
+    }
+    setShowLogin(false);
+  } catch (error) {
+    console.error("Auth error:", error);
+    addNotification("Error", error.message, 'error');
+  } finally {
+    setIsLoggingIn(false);
+  }
+};
+
+// Google Sign-in
+const handleGoogleLogin = async () => {
+  setIsLoggingIn(true);
+  
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    addNotification("Welcome!", `Hello ${result.user.displayName}!`);
+    setShowLogin(false);
+  } catch (error) {
+    console.error("Google auth error:", error);
+    addNotification("Error", "Google sign-in failed", 'error');
+  } finally {
+    setIsLoggingIn(false);
+  }
+};
+
+// Logout
+const handleLogout = async () => {
+  try {
+    await signOut(auth);
+    setUser(null);
+    setName("");
+    setPhone("");
+    setActiveSub(null);
+    addNotification("Logged Out", "See you soon!");
+  } catch (error) {
+    console.error("Logout error:", error);
+  }
+};
+
 
   // Menu categories
   const CATEGORIES = useMemo(() => {
@@ -166,10 +414,11 @@ export default function FoodMenu({ setPage }) {
   }, [activeSub, menuItems, user]);
 
   const checkAndTriggerSubscriptionOrder = async () => {
-    if (!activeSub || !user) return;
-    const today = new Date().toISOString().split('T')[0];
-    const now = new Date();
-    const slotTimeArr = activeSub.slot.split(":");
+  if (!activeSub || !user) return;
+  
+  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const [slotTimeArr] = activeSub.slot.split(':');
     const slotDate = new Date();
     slotDate.setHours(Number(slotTimeArr[0]), Number(slotTimeArr[1]), 0, 0);
     if (
@@ -178,17 +427,31 @@ export default function FoodMenu({ setPage }) {
       now.getHours() >= Number(slotTimeArr[0]) &&
       now.getMinutes() >= Number(slotTimeArr[1])
     ) {
-      const { data: existingOrders } = await supabase.from('orders').select('id')
-        .eq('user_id', user.id)
-        .gte('created_at', `${today}T00:00:00`)
-        .lte('created_at', `${today}T23:59:59`)
-        .contains('items', [{ item_id: activeSub.food_id }]);
-      if (!existingOrders || existingOrders.length === 0) {
-        await placeSubscriptionOrder();
-      }
+      const { data: skipData } = await supabase
+      .from('subscription_skips')
+      .select('id')
+      .eq('subscription_id', activeSub.id)
+      .eq('skip_date', today);
+    
+    if (skipData && skipData.length > 0) {
+      console.log('Meal skipped for today');
+      return;
     }
-  };
-
+    
+    // Check existing orders
+    const { data: existingOrders } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('user_id', user.id)
+      .gte('created_at', `${today}T00:00:00`)
+      .lte('created_at', `${today}T23:59:59`)
+      .contains('items', [{ itemid: activeSub.foodid }]);
+    
+    if (!existingOrders || existingOrders.length === 0) {
+      await placeSubscriptionOrder();
+    }
+  }
+};
 
   const handleSubscribe = async (e) => {
   e.preventDefault();
@@ -352,7 +615,7 @@ const cancelSubscriptionAndOrders = async (subscriptionId, userId) => {
     }, 1000);
   };
 
-  const handleLogout = () => {
+  const handleLogoout = () => {
     setUser(null);
     setName("");
     setPhone("");
@@ -475,7 +738,8 @@ const cancelSubscriptionAndOrders = async (subscriptionId, userId) => {
 
   // --- UI render ---
   return (
-    <div className="min-h-screen bg-neutral-50 text-neutral-900 selection:bg-black selection:text-white">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50">
+
       {/* Enhanced Notifications */}
             <AnimatePresence>
               {notifications.map((notification) => (
@@ -722,15 +986,334 @@ const cancelSubscriptionAndOrders = async (subscriptionId, userId) => {
                             </button>
                           </div>
         
-                          <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-2xl border bg-white">
-                            <Search className="h-5 w-5" />
-                            <input
-                              value={query}
-                              onChange={(e) => setQuery(e.target.value)}
-                              placeholder="Search dishes, categories..."
-                              className="flex-1 outline-none bg-transparent text-sm"
-                            />
-                          </div>
+                          <motion.div 
+  className="mt-4 mx-4"
+  initial={{ opacity: 0, y: 10 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.2 }}
+>
+  <div className="relative">
+    <motion.div 
+      className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white border border-neutral-300 shadow-sm"
+      whileFocus={{ scale: 1.02, borderColor: "#000" }}
+      transition={{ duration: 0.2 }}
+    >
+      <Search className="h-5 w-5 text-neutral-400" />
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search dishes, categories..."
+        className="flex-1 outline-none bg-transparent text-sm placeholder-neutral-400"
+      />
+      {query && (
+        <motion.button
+          onClick={() => setQuery('')}
+          className="h-6 w-6 rounded-full bg-neutral-100 hover:bg-neutral-200 grid place-items-center"
+          whileTap={{ scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0 }}
+          animate={{ opacity: 1, scale: 1 }}
+        >
+          <X className="h-3 w-3" />
+        </motion.button>
+      )}
+    </motion.div>
+  </div>
+</motion.div>
+
+{/* Auto Carousel Banner Section */}
+<motion.div
+  className="mt-4 mx-4"
+  initial={{ opacity: 0, y: 10 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.2 }}
+>
+  <div className="relative h-32 rounded-2xl overflow-hidden">
+    {[
+      { 
+        img: "https://thumbs.dreamstime.com/b/pieces-pizza-different-various-types-banner-old-retro-boards-still-life-concept-closeup-129819511.jpg", 
+        title: "🍕 Get 50% off on Pizza!", 
+        subtitle: "Order now and save big" 
+      },
+      { 
+        img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRKX_pA57WYMzHv7Ykeo6PziwtAb26UuiKc9g&s", 
+        title: "🍛 Special Biryani Deal", 
+        subtitle: "Free delivery on orders above ₹300" 
+      },
+      { 
+        img: "https://images.unsplash.com/photo-1551782450-17144efb9c50?w=800&h=200&fit=crop", 
+        title: "🍔 Burger Combo Offer", 
+        subtitle: "Buy 2 get 1 free on all burgers" 
+      },
+    ].map((banner, index) => (
+      <motion.div
+        key={index}
+        className="absolute inset-0"
+        initial={{ opacity: 0, x: 100 }}
+        animate={{ 
+          opacity: currentBanner === index ? 1 : 0,
+          x: currentBanner === index ? 0 : (index > currentBanner ? 100 : -100)
+        }}
+        transition={{ duration: 0.5, ease: "easeInOut" }}
+      >
+        <img 
+          src={banner.img} 
+          alt={banner.title}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent flex flex-col justify-center px-4">
+          <h3 className="text-white font-bold text-lg mb-1">{banner.title}</h3>
+          <p className="text-white/90 text-sm">{banner.subtitle}</p>
+        </div>
+      </motion.div>
+    ))}
+    
+    {/* Carousel Indicators */}
+    <div className="absolute bottom-2 right-2 flex gap-1">
+      {[0, 1, 2].map((index) => (
+        <div
+          key={index}
+          className={`w-2 h-2 rounded-full transition-all ${
+            currentBanner === index ? 'bg-white' : 'bg-white/50'
+          }`}
+        />
+      ))}
+    </div>
+  </div>
+</motion.div>
+
+{/* Inspiration for your first order - Real Food Items */}
+<motion.div
+  className="mt-6 px-4"
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.3, duration: 0.4 }}
+>
+  <h2 className="text-xl font-bold text-neutral-900 mb-4">Inspiration for your first order</h2>
+  <div className="overflow-x-auto no-scrollbar">
+    <div className="flex gap-4 pb-4">
+      {itemsFiltered.slice(0, 8).map((item, index) => (
+        <motion.div
+          key={item.id}
+          className="flex-shrink-0 w-32"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: index * 0.1 + 0.4 }}
+          whileHover={{ scale: 1.05 }}
+        >
+          <div className="bg-white rounded-2xl border border-neutral-200 p-3 shadow-sm hover:shadow-lg transition-all duration-300">
+            <div className="w-20 h-20 rounded-full overflow-hidden mx-auto mb-3">
+              <img 
+                src={item.img} 
+                alt={item.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <h3 className="text-xs font-medium text-center text-neutral-900 mb-1 truncate">
+              {item.title}
+            </h3>
+            <p className="text-xs font-bold text-center text-black mb-2">₹{item.price}</p>
+            {cart[item.id] ? (
+              <div className="scale-75 flex justify-center">
+                <QtyControl 
+                  qty={cart[item.id]} 
+                  onDec={() => decrement(item.id)} 
+                  onInc={() => increment(item.id)} 
+                />
+              </div>
+            ) : (
+              <motion.button
+                onClick={() => increment(item.id)}
+                className="w-full py-1.5 text-xs rounded-lg bg-black text-white font-medium"
+                whileTap={{ scale: 0.95 }}
+              >
+                Add
+              </motion.button>
+            )}
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  </div>
+</motion.div>
+
+{/* Top brands for you - Popular Food Items */}
+<motion.div
+  className="mt-8 px-4"
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.6, duration: 0.4 }}
+>
+  <h2 className="text-xl font-bold text-neutral-900 mb-4">Top picks for you</h2>
+  <div className="overflow-x-auto no-scrollbar">
+    <div className="flex gap-4 pb-4">
+      {itemsFiltered
+        .filter(item => item.price > 200) // Show premium items
+        .slice(0, 8)
+        .map((item, index) => (
+        <motion.div
+          key={item.id}
+          className="flex-shrink-0 w-40"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: index * 0.1 + 0.7 }}
+          whileHover={{ y: -2, scale: 1.02 }}
+        >
+          <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden">
+            <img 
+              src={item.img} 
+              alt={item.title}
+              className="w-full h-24 object-cover"
+            />
+            <div className="p-3">
+              <h3 className="font-semibold text-sm text-neutral-900 mb-1 truncate">
+                {item.title}
+              </h3>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-lg font-bold text-black">₹{item.price}</span>
+                <div className="flex items-center gap-1 text-xs text-neutral-500">
+                  <span>⭐ 4.2</span>
+                  <span>• 25 min</span>
+                </div>
+              </div>
+              {cart[item.id] ? (
+                <div className="scale-90">
+                  <QtyControl 
+                    qty={cart[item.id]} 
+                    onDec={() => decrement(item.id)} 
+                    onInc={() => increment(item.id)} 
+                  />
+                </div>
+              ) : (
+                <motion.button
+                  onClick={() => increment(item.id)}
+                  className="w-full py-2 text-sm rounded-lg bg-gradient-to-r from-black to-gray-800 text-white font-medium"
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Add to Cart
+                </motion.button>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  </div>
+</motion.div>
+
+{/* What's on your mind - Category wise items */}
+{/* <motion.div
+  className="mt-8 px-4"
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.8, duration: 0.4 }}
+>
+  <h2 className="text-xl font-bold text-neutral-900 mb-4">What's on your mind?</h2>
+  <div className="overflow-x-auto no-scrollbar">
+    <div className="flex gap-4 pb-4">
+      {itemsFiltered
+        .filter(item => item.category === 'Italian') // Focus on one category
+        .slice(0, 6)
+        .map((item, index) => (
+        <motion.div
+          key={item.id}
+          className="flex-shrink-0 w-48"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: index * 0.1 + 0.9 }}
+          whileHover={{ y: -4, scale: 1.02 }}
+        >
+          <div className="bg-white rounded-2xl border border-neutral-200 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden">
+            <img 
+              src={item.img} 
+              alt={item.title}
+              className="w-full h-32 object-cover"
+            />
+            <div className="p-4">
+              <h3 className="font-bold text-sm text-neutral-900 mb-2 truncate">
+                {item.title}
+              </h3>
+              <div className="flex items-center gap-2 text-xs text-neutral-500 mb-3">
+                <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
+                  {item.calories} kcal
+                </span>
+                <span>⭐ 4.3</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-lg font-bold text-black">₹{item.price}</span>
+                {cart[item.id] ? (
+                  <div className="scale-75">
+                    <QtyControl 
+                      qty={cart[item.id]} 
+                      onDec={() => decrement(item.id)} 
+                      onInc={() => increment(item.id)} 
+                    />
+                  </div>
+                ) : (
+                  <motion.button
+                    onClick={() => increment(item.id)}
+                    className="px-4 py-1.5 text-xs rounded-lg bg-black text-white font-medium"
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Add
+                  </motion.button>
+                )}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  </div>
+</motion.div> */}
+
+
+{/* Top brands for you */}
+{/* <motion.div
+  className="mt-8 px-4"
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ delay: 0.6, duration: 0.4 }}
+>
+  <h2 className="text-xl font-bold text-neutral-900 mb-4">Top brands for you</h2>
+  <div className="overflow-x-auto no-scrollbar">
+    <div className="flex gap-4 pb-4">
+      {[
+        { name: "McDonald's", time: "32 min", img: "https://logos-world.net/wp-content/uploads/2020/04/McDonalds-Logo.png", bg: "bg-yellow-400" },
+        { name: "Vrindavan Bhojnalaya", time: "25 min", img: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=100&h=100&fit=crop&crop=center", bg: "bg-red-800" },
+        { name: "Pizza Hut", time: "32 min", img: "https://logos-world.net/wp-content/uploads/2020/06/Pizza-Hut-Logo.png", bg: "bg-red-600" },
+        { name: "KFC", time: "28 min", img: "https://logos-world.net/wp-content/uploads/2020/04/KFC-Logo.png", bg: "bg-red-500" },
+        { name: "Eat N Joy", time: "25 min", img: "https://images.unsplash.com/photo-1571091718767-18b5b1457add?w=100&h=100&fit=crop&crop=center", bg: "bg-orange-500" },
+        { name: "Domino's", time: "30 min", img: "https://logos-world.net/wp-content/uploads/2020/06/Dominos-Logo.png", bg: "bg-blue-600" },
+      ].map((brand, index) => (
+        <motion.div
+          key={brand.name}
+          className="flex-shrink-0 w-36"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: index * 0.1 + 0.7 }}
+          whileHover={{ y: -2, scale: 1.02 }}
+        >
+          <div className="bg-white rounded-2xl border border-neutral-200 p-4 shadow-sm hover:shadow-lg transition-all duration-300">
+            <div className={`w-16 h-16 ${brand.bg} rounded-full mx-auto mb-3 flex items-center justify-center overflow-hidden`}>
+              <img 
+                src={brand.img} 
+                alt={brand.name}
+                className="w-12 h-12 object-contain"
+              />
+            </div>
+            <h3 className="font-semibold text-sm text-center text-neutral-900 mb-1 truncate">
+              {brand.name}
+            </h3>
+            <p className="text-xs text-neutral-500 text-center">{brand.time}</p>
+          </div>
+        </motion.div>
+      ))}
+    </div>
+  </div>
+</motion.div> */}
+
+
+
         
                           {/* Loading state */}
                           {loadingMenu && (
@@ -756,106 +1339,193 @@ const cancelSubscriptionAndOrders = async (subscriptionId, userId) => {
                           {/* Show categories and menu items only when not loading and no error */}
                           {!loadingMenu && !menuError && (
                             <>
-                              {/* Categories */}
-                              <div className="mt-4 overflow-x-auto no-scrollbar">
-                                <div className="flex gap-2 w-max">
-                                  {CATEGORIES.map((cat) => (
-                                    <button
-                                      key={cat}
-                                      onClick={() => setCategory(cat)}
-                                      className={`px-3 py-2 rounded-2xl border text-sm whitespace-nowrap transition active:scale-[0.98] ${
-                                        category === cat ? "bg-black text-white border-black" : "bg-white border-neutral-300"
-                                      }`}
-                                    >
-                                      {cat}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
+                             {/* Enhanced Categories with Sliding Animation */}
+{/* Enhanced Categories with Round Buttons */}
+<motion.div 
+  className="mt-4"
+  initial={{ opacity: 0, y: 10 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.3 }}
+>
+  <div className="px-4 mb-2">
+    <h3 className="text-lg font-semibold text-neutral-900">Categories</h3>
+  </div>
+  <div className="overflow-x-auto no-scrollbar">
+    <div className="flex gap-4 px-4 pb-2">
+      {CATEGORIES.map((cat, index) => {
+        // Define icons for each category
+        // Define different icons for each category  
+const categoryIcons = {
+  'All': UtensilsCrossed,      // Fork and knife crossed
+  'Bowls': Soup,               // Bowl icon
+  'Pizzas': Pizza,             // Pizza slice
+  'Mains': UtensilsCrossed,    // Main dishes 
+  'Snacks': Hamburger,             // Snack icon
+  'Wraps': Salad,               // Wrap icon
+  'Italian': Pizza,            // Pizza for Italian
+  'Chinese': Soup,             // Soup bowl for Chinese
+  'Indian': Pizza,              // Bowl for Indian
+  'Mexican': Sandwich,         // Sandwich for Mexican
+  'Desserts': Cake,            // Cake for desserts
+  'Beverages': Coffee,         // Coffee cup for beverages
+  'Fast Food': Sandwich,       // Sandwich for fast food
+  'Vegetarian': Salad,
+  'Drinks' : Martini          // Salad for vegetarian
+};
+
         
-                              {/* Menu Grid */}
-                              <div className="mt-4 grid grid-cols-1 gap-3">
-                                <AnimatePresence>
-                                  {itemsFiltered.map((item) => (
-                                    <motion.div
-                                      key={item.id}
-                                      layout
-                                      initial={{ opacity: 0, y: 10 }}
-                                      animate={{ opacity: 1, y: 0 }}
-                                      exit={{ opacity: 0, y: -10 }}
-                                      className="rounded-3xl border border-neutral-200 bg-white p-3 shadow-sm"
-                                    >
-                                      <div className="flex gap-3">
-                                        <img
-                                          src={item.img}
-                                          alt={item.title}
-                                          className="h-20 w-20 rounded-2xl object-cover object-center flex-shrink-0"
-                                          loading="lazy"
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-start justify-between gap-2">
-                                            <div className="min-w-0">
-                                              <h3 className="font-semibold truncate">{item.title}</h3>
-                                              <p className="text-xs text-neutral-500 mt-0.5">{item.category}</p>
-                                            </div>
-                                            {cart[item.id] ? (
-                                              <QtyControl
-                                                qty={cart[item.id]}
-                                                onDec={() => decrement(item.id)}
-                                                onInc={() => increment(item.id)}
-                                              />
-                                            ) : (
-                                              <button
-                                                onClick={() => increment(item.id)}
-                                                className="px-3 py-1.5 text-sm rounded-xl bg-black text-white active:scale-[0.98]"
-                                              >
-                                                Add
-                                              </button>
-                                            )}
-                                          </div>
+        const IconComponent = categoryIcons[cat] || UtensilsCrossed;
         
-                                          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-neutral-600">
-                                            <span>🔥 {item.calories} kcal</span>
-                                            <span>🥚 {item.protein}g P</span>
-                                            <span>🌾 {item.carbs}g C</span>
-                                            <span>🧈 {item.fats}g F</span>
-                                            <span>₹ {item.price}</span>
-                                          </div>
-                                        </div>
-                                      </div>
+        return (
+          <motion.div
+            key={cat}
+            className="flex-shrink-0"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.1 }}
+            whileHover={{ y: -2, scale: 1.02 }}
+          >
+            <button 
+              onClick={() => setCategory(cat)}
+              className={`w-20 h-20 rounded-full border-2 transition-all duration-300 ${
+                category === cat 
+                  ? "bg-gradient-to-br from-green-500 to-green-600 border-green-400 text-white shadow-lg scale-105" 
+                  : "bg-white border-green-200 text-green-600 hover:border-green-300 hover:shadow-md hover:text-green-700"
+              }`}
+            >
+              <div className="flex flex-col items-center justify-center h-full">
+                <IconComponent 
+                  className={`w-6 h-6 mb-1 ${
+                    category === cat ? 'text-white' : 'text-green-600'
+                  }`}
+                />
+                <span className="text-xs font-medium leading-tight text-center px-1">
+                  {cat}
+                </span>
+              </div>
+            </button>
+          </motion.div>
+        );
+      })}
+    </div>
+  </div>
+</motion.div>
+
+
+
+
         
-                                      {/* Description toggle */}
-                                      <button
-                                        onClick={() =>
-                                          setDescOpen((d) => ({ ...d, [item.id]: !d[item.id] }))
-                                        }
-                                        className="mt-2 w-full flex items-center justify-center gap-1 text-sm text-neutral-700"
-                                      >
-                                        <ChevronDown
-                                          className={`h-4 w-4 transition-transform ${descOpen[item.id] ? "rotate-180" : ""}`}
-                                        />
-                                        <span>Description</span>
-                                      </button>
-                                      <AnimatePresence initial={false}>
-                                        {descOpen[item.id] && (
-                                          <motion.p
-                                            initial={{ height: 0, opacity: 0 }}
-                                            animate={{ height: "auto", opacity: 1 }}
-                                            exit={{ height: 0, opacity: 0 }}
-                                            className="text-sm text-neutral-600 overflow-hidden px-1"
-                                          >
-                                            {item.description}
-                                          </motion.p>
-                                        )}
-                                      </AnimatePresence>
-                                    </motion.div>
-                                  ))}
-                                </AnimatePresence>
+                              {/* Enhanced Menu Grid with Staggered Animations */}
+{/* Enhanced Menu Grid with Staggered Animations */}
+<motion.div 
+  className="mt-6 grid grid-cols-1 gap-4"
+  initial={{ opacity: 0 }}
+  animate={{ opacity: 1 }}
+  transition={{ duration: 0.4 }}
+>
+  <AnimatePresence mode="wait">
+    {itemsFiltered.map((item, index) => (
+      <motion.div
+        key={item.id}
+        layout
+        initial={{ opacity: 0, y: 20, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -20, scale: 0.95 }}
+        transition={{ 
+          duration: 0.3, 
+          delay: index * 0.05,
+          type: "spring",
+          stiffness: 100
+        }}
+        whileHover={{ y: -4, scale: 1.02 }}
+        className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm hover:shadow-xl transition-shadow duration-300"
+      >
+        <div className="flex gap-4">
+          <motion.img 
+            src={item.img} 
+            alt={item.title}
+            className="h-24 w-24 rounded-2xl object-cover object-center flex-shrink-0"
+            loading="lazy"
+            whileHover={{ scale: 1.1 }}
+            transition={{ duration: 0.3 }}
+          />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h3 className="font-bold text-lg text-neutral-900 truncate">{item.title}</h3>
+                <p className="text-sm text-neutral-500 mt-1">{item.category}</p>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
+                  <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-medium">
+                    {item.calories} kcal
+                  </span>
+                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
+                    {item.protein}g P
+                  </span>
+                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
+                    {item.carbs}g C
+                  </span>
+                  <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-medium">
+                    {item.fats}g F
+                  </span>
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-2">
+                <span className="text-xl font-bold text-black">₹{item.price}</span>
+                {cart[item.id] ? (
+                  <QtyControl 
+                    qty={cart[item.id]} 
+                    onDec={() => decrement(item.id)} 
+                    onInc={() => increment(item.id)} 
+                  />
+                ) : (
+                  <motion.button
+                    onClick={() => increment(item.id)}
+                    className="px-4 py-2 text-sm rounded-xl bg-gradient-to-r from-black to-gray-800 text-white font-medium shadow-md hover:shadow-lg transition-all"
+                    whileTap={{ scale: 0.95 }}
+                    whileHover={{ scale: 1.05, y: -2 }}
+                  >
+                    Add
+                  </motion.button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
         
-                                {itemsFiltered.length === 0 && !loadingMenu && (
-                                  <p className="text-center text-sm text-neutral-500 py-10">No items match your search.</p>
-                                )}
-                              </div>
+        {/* Description Toggle */}
+        <motion.button
+          onClick={() => setDescOpen(d => ({ ...d, [item.id]: !d[item.id] }))}
+          className="mt-3 w-full flex items-center justify-center gap-2 text-sm text-neutral-700 hover:text-black transition-colors"
+          whileTap={{ scale: 0.98 }}
+        >
+          <motion.div
+            animate={{ rotate: descOpen[item.id] ? 180 : 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <ChevronDown className="h-4 w-4" />
+          </motion.div>
+          <span>Description</span>
+        </motion.button>
+        
+        <AnimatePresence initial={false}>
+          {descOpen[item.id] && (
+            <motion.p
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="text-sm text-neutral-600 overflow-hidden px-1 mt-2"
+            >
+              {item.description}
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    ))}
+  </AnimatePresence>
+</motion.div>
+
+
                             </>
                           )}
                         </div>
@@ -909,216 +1579,459 @@ const cancelSubscriptionAndOrders = async (subscriptionId, userId) => {
       )}
 
       {/* Subscriptions Tab/Section */}
-      {subscriptionTab && user && (
-        <div className="max-w-screen-sm mx-auto pt-6 px-4 pb-32">
-          <h2 className="text-xl font-bold mb-2">My Food Subscription</h2>
-          {activeSub ? (
-            <div className="bg-green-50 border border-green-200 rounded-2xl p-5 mb-4">
-                  <p>Status: {activeSub.status}</p>
-              <p className="font-semibold mb-1">Active for <b>{activeSub.days}</b> days (@ {activeSub.slot === "13:00" ? "1pm" : "7pm"})</p>
-              {/* <p>Your meal: <b>{menuItems.find(i => i.id === activeSub.food_id)?.title || "..."}</b></p> */}
-              {/* <p>Your meal: <b>{menuItems.find(i => String(i.id) === String(activeSub.food_id))?.title || "..."}</b></p> */}
-              <ul>
-      <ul>
-  {activeSub.food_items.map(({ item_id }) => {
-    const menuItem = menuItems.find(m => String(m.id) === String(item_id));
-    return (
-      <li key={item_id}>
-        {menuItem ? menuItem.title : "Unknown item"}
-      </li>
-    );
-  })}
-</ul>
-    </ul>
-
-              <p className="text-sm text-green-700 mt-2">Started: {activeSub.start_date}, Ends: {activeSub.end_date}</p>
-              <button
-                className="mt-3 px-4 py-2 rounded-xl border border-red-400 text-red-700 font-semibold bg-red-50"
-                onClick={() => handleCancelSub(activeSub.id)}
-              >Cancel Subscription</button>
-            </div>
-          ) : (
-            <form
-              className="bg-white rounded-2xl border border-neutral-200 p-5 mb-4 flex flex-col gap-4"
-              onSubmit={handleSubscribe}
-              >
-              {/* <label>
-                <span className="text-sm font-semibold">Select Dish</span>
-                <select
-                  className="block w-full mt-1 px-3 py-2 rounded-xl border border-neutral-300"
-                  value={subscriptionForm.foodId}
-                  onChange={e => setSubscriptionForm(f => ({ ...f, foodId: e.target.value }))}
-                  required
-                >
-                  <option value="">-- Pick a dish --</option>
-                  {menuItems.map(item => (
-                    <option key={item.id} value={item.id}>{item.title}</option>
-                  ))}
-                </select>
-              </label> */}
-<label className="block">
-  <span className="text-gray-700 font-semibold mb-2 block">Select Dishes</span>
-  <select
-    multiple
-    value={subscriptionForm.foodIds}
-    onChange={e => {
-      const selected = Array.from(e.target.selectedOptions, o => o.value);
-      setSubscriptionForm(f => ({ ...f, foodIds: selected }));
-    }}
-    className="
-      block
-      w-full 
-      h-48
-      rounded-lg 
-      border 
-      border-gray-300 
-      bg-white 
-      text-gray-900 
-      shadow-sm
-      focus:border-blue-500 
-      focus:ring 
-      focus:ring-blue-300 
-      focus:ring-opacity-50 
-      cursor-pointer
-      transition
-      duration-150
-      ease-in-out
-    "
-  >
-    {menuItems.map(item => (
-      <option
-        key={item.id}
-        value={item.id}
-        className="hover:bg-blue-100 focus:bg-blue-100"
-      >
-        {item.title}
-      </option>
-    ))}
-  </select>
-</label>
-
-              <label>
-                <span className="text-sm font-semibold">Duration</span>
-                <select
-                  className="block w-full mt-1 px-3 py-2 rounded-xl border border-neutral-300"
-                  value={subscriptionForm.days}
-                  onChange={e => setSubscriptionForm(f => ({ ...f, days: Number(e.target.value) }))}
-                  required
-                >
-                  <option value={7}>7 days</option>
-                  <option value={15}>15 days</option>
-                  <option value={26}>26 days</option>
-                </select>
-              </label>
-              <label>
-                <span className="text-sm font-semibold">Delivery Time</span>
-                <select
-                  className="block w-full mt-1 px-3 py-2 rounded-xl border border-neutral-300"
-                  value={subscriptionForm.slot}
-                  onChange={e => setSubscriptionForm(f => ({ ...f, slot: e.target.value }))}
-                  required
-                >
-                  <option value="13:00">1:00 pm</option>
-                  <option value="19:00">7:00 pm</option>
-                </select>
-              </label>
-              <button className="mt-2 px-4 py-3 rounded-2xl bg-black text-white text-sm font-bold disabled:opacity-60">
-                Start Subscription
-              </button>
-            </form>
-          )}
+{subscriptionTab && user && (
+  <div className="pb-6">
+    {/* Show existing subscription if user has one */}
+    {activeSub ? (
+      <div className="p-4 bg-green-50 border-b border-green-200">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg font-bold text-green-800">Active Subscription</h3>
+          <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+            Active
+          </span>
         </div>
-      )}
+        <p className="text-green-700 text-sm mb-2">
+          Active for <b>{activeSub.days}</b> days • {activeSub.slot === "13:00" ? "1pm" : "7pm"}
+        </p>
+        <p className="text-green-700 text-sm mb-3">
+          Your meals: <b>
+            {activeSub.fooditems?.map(({ itemid }) => {
+              const menuItem = menuItems.find(m => String(m.id) === String(itemid));
+              return menuItem?.title;
+            }).join(', ')}
+          </b>
+        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-green-600">
+            Started {activeSub.startdate} • Ends {activeSub.enddate}
+          </p>
+          <button 
+            className="px-4 py-2 rounded-xl border border-red-400 text-red-700 font-semibold bg-red-50 text-sm" 
+            onClick={() => handleCancelSub(activeSub.id)}
+          >
+            Cancel
+          </button>
+        </div>
+        
+        {/* Subscription Calendar */}
+        <div className="mt-4">
+          <SubscriptionCalendar 
+            user={user}
+            activeSub={activeSub}
+            menuItems={menuItems}
+          />
+        </div>
+      </div>
+    ) : null}
+
+    {/* New Subscription Creation */}
+    <div>
+      {/* Subscription Header */}
+      <div className="px-4 py-3 bg-gradient-to-r from-green-50 to-green-100 border-b border-green-200">
+        <h2 className="text-lg font-bold text-green-800">
+          {activeSub ? 'Modify Subscription' : 'Daily Meal Subscription'}
+        </h2>
+        <p className="text-sm text-green-600">
+          {activeSub ? 'Add more meals to your plan' : 'Build your daily meal plan'}
+        </p>
+      </div>
+
+      {/* Search Bar */}
+      <motion.div 
+        className="mt-4 mx-4"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <div className="relative">
+          <motion.div 
+            className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white border border-green-200 shadow-sm focus-within:border-green-400 focus-within:shadow-md"
+            transition={{ duration: 0.2 }}
+          >
+            <Search className="h-5 w-5 text-green-500" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search for subscription meals..."
+              className="flex-1 outline-none bg-transparent text-sm placeholder-green-400"
+            />
+            {query && (
+              <motion.button
+                onClick={() => setQuery('')}
+                className="h-6 w-6 rounded-full bg-green-100 hover:bg-green-200 grid place-items-center"
+                whileTap={{ scale: 0.9 }}
+              >
+                <X className="h-3 w-3 text-green-600" />
+              </motion.button>
+            )}
+          </motion.div>
+        </div>
+      </motion.div>
+
+      {/* Categories for Subscription */}
+      <motion.div 
+        className="mt-4"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
+        <div className="px-4 mb-2">
+          <h3 className="text-lg font-semibold text-neutral-900">Categories</h3>
+        </div>
+        <div className="overflow-x-auto no-scrollbar">
+          <div className="flex gap-4 px-4 pb-2">
+            {CATEGORIES.map((cat, index) => {
+              const getIcon = (categoryName) => {
+                switch(categoryName) {
+                  case 'All': return UtensilsCrossed;
+                  case 'Italian': return Pizza;
+                  case 'Chinese': return Soup;
+                  case 'Indian': return Soup;
+                  case 'Mexican': return Sandwich;
+                  case 'Desserts': return Cake;
+                  case 'Beverages': return Coffee;
+                  case 'Fast Food': return Hamburger;
+                  case 'Vegetarian': return Salad;
+                  default: return UtensilsCrossed;
+                }
+              };
+              
+              const IconComponent = getIcon(cat);
+              
+              return (
+                <motion.div
+                  key={cat}
+                  className="flex-shrink-0"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  whileHover={{ y: -2, scale: 1.02 }}
+                >
+                  <button 
+                    onClick={() => setCategory(cat)}
+                    className={`w-20 h-20 rounded-full border-2 transition-all duration-300 ${
+                      category === cat 
+                        ? "bg-gradient-to-br from-green-500 to-green-600 border-green-400 text-white shadow-lg scale-105" 
+                        : "bg-white border-green-200 text-green-600 hover:border-green-300 hover:shadow-md hover:text-green-700"
+                    }`}
+                  >
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <IconComponent 
+                        className={`w-6 h-6 mb-1 ${
+                          category === cat ? 'text-white' : 'text-green-600'
+                        }`}
+                      />
+                      <span className="text-xs font-medium leading-tight text-center px-1">
+                        {cat}
+                      </span>
+                    </div>
+                  </button>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Subscription Menu Grid */}
+      <motion.div 
+        className="mt-6 grid grid-cols-1 gap-4 px-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4 }}
+      >
+        <AnimatePresence mode="wait">
+          {itemsFiltered.map((item, index) => (
+            <motion.div
+              key={item.id}
+              layout
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              transition={{ 
+                duration: 0.3, 
+                delay: index * 0.05,
+                type: "spring",
+                stiffness: 100
+              }}
+              whileHover={{ y: -4, scale: 1.02 }}
+              className="rounded-3xl border border-green-200 bg-white p-4 shadow-sm hover:shadow-xl transition-shadow duration-300"
+            >
+              <div className="flex gap-4">
+                <motion.img 
+                  src={item.img} 
+                  alt={item.title}
+                  className="h-24 w-24 rounded-2xl object-cover object-center flex-shrink-0"
+                  loading="lazy"
+                  whileHover={{ scale: 1.1 }}
+                  transition={{ duration: 0.3 }}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold text-lg text-neutral-900 truncate">{item.title}</h3>
+                      <p className="text-sm text-neutral-500 mt-1">{item.category}</p>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600">
+                        <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded-full font-medium">
+                          {item.calories} kcal
+                        </span>
+                        <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
+                          {item.protein}g P
+                        </span>
+                        <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full font-medium">
+                          {item.carbs}g C
+                        </span>
+                        <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-medium">
+                          {item.fats}g F
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="text-xl font-bold text-green-700">₹{item.price}/day</span>
+                      {subscriptionCart[item.id] ? (
+                        <QtyControl 
+                          qty={subscriptionCart[item.id]} 
+                          onDec={() => decrementSubscription(item.id)} 
+                          onInc={() => incrementSubscription(item.id)} 
+                        />
+                      ) : (
+                        <motion.button
+                          onClick={() => incrementSubscription(item.id)}
+                          className="px-4 py-2 text-sm rounded-xl bg-gradient-to-r from-green-600 to-green-700 text-white font-medium shadow-md hover:shadow-lg transition-all"
+                          whileTap={{ scale: 0.95 }}
+                          whileHover={{ scale: 1.05, y: -2 }}
+                        >
+                          Add to Plan
+                        </motion.button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </motion.div>
+
+      {/* Subscription Cart Summary - Fixed at bottom */}
+      <AnimatePresence>
+        {subscriptionCartList.length > 0 && (
+          <div className="fixed bottom-20 left-0 right-0 z-30">
+            <div className="max-w-screen-sm mx-auto px-4">
+              <motion.div
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 100, opacity: 0 }}
+                className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 rounded-3xl shadow-lg"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm opacity-90">
+                      {subscriptionCartList.length} meals • ₹{subscriptionTotals.price}/day
+                    </p>
+                    <p className="font-bold text-lg">Daily Meal Plan</p>
+                  </div>
+                  <button
+                    onClick={() => setShowSubscriptionSetup(true)}
+                    className="bg-white text-green-700 px-6 py-2 rounded-xl font-bold hover:bg-green-50 transition-colors"
+                  >
+                    Start Subscription
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  </div>
+)}
+
+{/* Subscription Setup Modal */}
+<AnimatePresence>
+  {showSubscriptionSetup && (
+    <motion.div
+      className="fixed inset-0 z-50"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/40" onClick={() => setShowSubscriptionSetup(false)} />
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", stiffness: 220, damping: 26 }}
+        className="absolute bottom-0 left-0 right-0 max-w-screen-sm mx-auto bg-white rounded-t-3xl shadow-2xl"
+      >
+        <div className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold text-neutral-900">Setup Subscription</h3>
+            <button
+              onClick={() => setShowSubscriptionSetup(false)}
+              className="p-2 rounded-full hover:bg-neutral-100"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* Duration Selection */}
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-3">
+              Subscription Duration
+            </label>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { days: 7, label: '1 Week', popular: false },
+                { days: 15, label: '2 Weeks', popular: true },
+                { days: 26, label: '1 Month', popular: false }
+              ].map(option => (
+                <button
+                  key={option.days}
+                  onClick={() => setSubscriptionDuration(option.days)}
+                  className={`p-4 rounded-xl border-2 text-center relative ${
+                    subscriptionDuration === option.days
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-neutral-200 hover:border-neutral-300'
+                  }`}
+                >
+                  {option.popular && (
+                    <span className="absolute -top-2 left-1/2 transform -translate-x-1/2 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
+                      Popular
+                    </span>
+                  )}
+                  <div className="font-bold text-lg">{option.days} Days</div>
+                  <div className="text-sm text-neutral-600">{option.label}</div>
+                  <div className="text-sm font-semibold text-green-600 mt-1">
+                    ₹{subscriptionTotals.price * option.days}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Time Slot Selection */}
+          <div>
+            <label className="block text-sm font-medium text-neutral-700 mb-3">
+              Delivery Time
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { slot: '13:00', label: 'Lunch', time: '1:00 PM' },
+                { slot: '19:00', label: 'Dinner', time: '7:00 PM' }
+              ].map(option => (
+                <button
+                  key={option.slot}
+                  onClick={() => setSubscriptionTimeSlot(option.slot)}
+                  className={`p-4 rounded-xl border-2 text-center ${
+                    subscriptionTimeSlot === option.slot
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-neutral-200 hover:border-neutral-300'
+                  }`}
+                >
+                  <div className="font-bold">{option.label}</div>
+                  <div className="text-sm text-neutral-600">{option.time}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="bg-green-50 p-4 rounded-xl">
+            <h4 className="font-bold text-green-800 mb-2">Subscription Summary</h4>
+            <div className="text-sm space-y-1 text-green-700">
+              <p><strong>{subscriptionCartList.length}</strong> meals per day</p>
+              <p><strong>₹{subscriptionTotals.price}</strong> per day</p>
+              <p><strong>{subscriptionDuration} days</strong> duration</p>
+              <p><strong>{subscriptionTimeSlot === '13:00' ? '1:00 PM' : '7:00 PM'}</strong> delivery</p>
+              <div className="border-t border-green-200 mt-2 pt-2">
+                <p className="font-bold text-lg">Total: ₹{subscriptionTotals.price * subscriptionDuration}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Confirm Button */}
+          <button
+            onClick={startSubscription}
+            className="w-full bg-gradient-to-r from-green-600 to-green-700 text-white py-4 rounded-xl font-bold text-lg hover:from-green-700 hover:to-green-800 transition-all"
+          >
+            Start Subscription - ₹{subscriptionTotals.price * subscriptionDuration}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )}
+</AnimatePresence>
+
 
        {/* Login Modal */}
               <AnimatePresence>
                 {showLogin && (
-                  <motion.div
-                    className="fixed inset-0 z-50"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                  >
-                    <div className="absolute inset-0 bg-black/40" onClick={() => setShowLogin(false)} />
-                    <div className="flex items-center justify-center min-h-full p-4">
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                        className="relative bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl z-10"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <div className="text-center mb-6">
-                          <div className="h-16 w-16 bg-black rounded-full grid place-items-center mx-auto mb-4">
-                            <User className="h-8 w-8 text-white" />
-                          </div>
-                          <h2 className="text-xl font-bold">Welcome Back</h2>
-                          <p className="text-sm text-neutral-600">Login to your account</p>
-                        </div>
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-2xl p-6 max-w-sm mx-4 w-full">
+      <h2 className="text-xl font-bold mb-4">
+        {isSignUp ? "Create Account" : "Sign In"}
+      </h2>
+      
+      {/* Google Sign-in Button */}
+      <button
+        onClick={handleGoogleLogin}
+        disabled={isLoggingIn}
+        className="w-full flex items-center justify-center gap-3 p-3 border border-gray-300 rounded-xl mb-4 hover:bg-gray-50"
+      >
+        <svg className="w-5 h-5" viewBox="0 0 24 24">
+          {/* Google Icon SVG */}
+        </svg>
+        Continue with Google
+      </button>
+      
+      <div className="text-center mb-4 text-gray-500">or</div>
+      
+      {/* Email/Password Form */}
+      <form onSubmit={handleEmailLogin}>
+        <input
+          type="email"
+          placeholder="Email"
+          value={loginData.email}
+          onChange={(e) => setLoginData({...loginData, email: e.target.value})}
+          className="w-full p-3 border rounded-xl mb-3"
+          required
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          value={loginData.password}
+          onChange={(e) => setLoginData({...loginData, password: e.target.value})}
+          className="w-full p-3 border rounded-xl mb-4"
+          required
+        />
         
-                        <form onSubmit={handleLogin} className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-neutral-700 mb-1">
-                              Email or Phone
-                            </label>
-                            <input
-                              type="text"
-                              value={loginData.identifier}
-                              onChange={(e) => setLoginData(prev => ({ ...prev, identifier: e.target.value }))}
-                              placeholder="Email or Phone Number"
-                              className="w-full px-4 py-3 border border-neutral-300 rounded-2xl focus:ring-2 focus:ring-black outline-none"
-                              required
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-neutral-700 mb-1">
-                              Password
-                            </label>
-                            <input
-                              type="password"
-                              value={loginData.password}
-                              onChange={(e) => setLoginData(prev => ({ ...prev, password: e.target.value }))}
-                              placeholder="Password"
-                              className="w-full px-4 py-3 border border-neutral-300 rounded-2xl focus:ring-2 focus:ring-black outline-none"
-                              required
-                              onClick={(e) => e.stopPropagation()}
-                            />
-                          </div>
-                          
-                          {/* Demo id and Pass Indicator  */}
-        
-                          {/* <div className="bg-blue-50 p-3 rounded-2xl border border-blue-200">
-                            <p className="text-xs text-blue-700 text-center">
-                              <strong>Demo Credentials:</strong><br/>
-                              Email: demo@example.com<br/>
-                              Password: demo
-                            </p>
-                          </div> */}
-        
-                          <button
-                            type="submit"
-                            disabled={isLoggingIn}
-                            className="w-full py-3 bg-black text-white rounded-2xl font-semibold disabled:opacity-50"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {isLoggingIn ? "Logging in..." : "Login"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowLogin(false);
-                            }}
-                            className="w-full py-2 text-neutral-600 text-sm"
-                          >
-                            Cancel
-                          </button>
-                        </form>
-                      </motion.div>
-                    </div>
-                  </motion.div>
-                )}
+        <button
+          type="submit"
+          disabled={isLoggingIn}
+          className="w-full bg-black text-white p-3 rounded-xl mb-3"
+        >
+          {isLoggingIn ? "Please wait..." : (isSignUp ? "Create Account" : "Sign In")}
+        </button>
+      </form>
+      
+      <button
+        onClick={() => setIsSignUp(!isSignUp)}
+        className="w-full text-sm text-gray-600"
+      >
+        {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
+      </button>
+      
+      <button
+        onClick={() => setShowLogin(false)}
+        className="absolute top-4 right-4"
+      >
+        <X className="h-5 w-5" />
+      </button>
+    </div>
+  </div>
+)}
+
               </AnimatePresence>
         
               {/* Order History Modal */}
@@ -1544,25 +2457,44 @@ function SubscriptionModal({ show, menuItems, subscriptionForm, setSubscriptionF
 // Helper for item quantity
 function QtyControl({ qty, onInc, onDec }) {
   return (
-    <div className="flex items-center gap-2 bg-neutral-100 rounded-xl px-2 py-1">
-      <button
+    <motion.div 
+      className="flex items-center gap-3 bg-gradient-to-r from-neutral-100 to-neutral-50 rounded-2xl px-3 py-2 shadow-sm border border-neutral-200"
+      whileHover={{ scale: 1.02 }}
+      transition={{ duration: 0.2 }}
+    >
+      <motion.button
         onClick={onDec}
-        className="h-7 w-7 grid place-items-center rounded-lg border border-neutral-300 active:scale-95"
-        aria-label="Decrease"
+        className="h-8 w-8 grid place-items-center rounded-xl bg-white border border-neutral-300 hover:border-red-400 hover:bg-red-50 transition-colors"
+        whileTap={{ scale: 0.9 }}
+        whileHover={{ scale: 1.1 }}
+        aria-label="Decrease quantity"
       >
-        <Minus className="h-4 w-4" />
-      </button>
-      <span className="w-6 text-center text-sm font-medium">{qty}</span>
-      <button
+        <Minus className="h-4 w-4 text-red-500" />
+      </motion.button>
+      
+      <motion.span 
+        className="w-8 text-center text-lg font-bold text-neutral-800"
+        key={qty}
+        initial={{ scale: 1.2, color: "#10b981" }}
+        animate={{ scale: 1, color: "#374151" }}
+        transition={{ duration: 0.2 }}
+      >
+        {qty}
+      </motion.span>
+      
+      <motion.button
         onClick={onInc}
-        className="h-7 w-7 grid place-items-center rounded-lg border border-neutral-300 active:scale-95"
-        aria-label="Increase"
+        className="h-8 w-8 grid place-items-center rounded-xl bg-white border border-neutral-300 hover:border-green-400 hover:bg-green-50 transition-colors"
+        whileTap={{ scale: 0.9 }}
+        whileHover={{ scale: 1.1 }}
+        aria-label="Increase quantity"
       >
-        <Plus className="h-4 w-4" />
-      </button>
-    </div>
+        <Plus className="h-4 w-4 text-green-500" />
+      </motion.button>
+    </motion.div>
   );
 }
+
 
 const style = document.createElement("style");
 style.textContent = `
@@ -1570,3 +2502,39 @@ style.textContent = `
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 `;
 document.head.appendChild(style);
+// Add this after your existing CSS
+const enhancedStyle = document.createElement('style');
+enhancedStyle.textContent = `
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  /* Smooth scrolling for categories */
+  .category-scroll {
+    scroll-behavior: smooth;
+    scroll-snap-type: x mandatory;
+  }
+  
+  /* Enhanced shadows */
+  .shadow-elegant {
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.1), 0 2px 8px -2px rgba(0, 0, 0, 0.06);
+  }
+  
+  /* Gradient backgrounds */
+  .bg-food-gradient {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  }
+
+  .line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+`;
+document.head.appendChild(enhancedStyle);

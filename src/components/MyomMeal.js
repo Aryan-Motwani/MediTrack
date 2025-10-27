@@ -56,20 +56,41 @@ const categories = [
   },
 ];
 
-export default function MyomMeal() {
-  const [currentCategory, setCurrentCategory] = useState(0);
+export default function MyomMeal({ onBack, setPage, user, supabase }) {
 
+
+  const [currentCategory, setCurrentCategory] = useState(0);
+  
   // Cart store: by category name we keep { option, qty }
   const [cart, setCart] = useState({}); // { [catName]: { option, qty } }
-
+  
   // Drawers
   const [showCart, setShowCart] = useState(false);
   const [cartView, setCartView] = useState("items"); // "items" | "checkout"
-
+  
   // Quantity drawer state
   const [showQty, setShowQty] = useState(false);
   const [pendingPick, setPendingPick] = useState(null); // { categoryIndex, option }
   const [pendingQty, setPendingQty] = useState(0);
+  
+  // Order placement state
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  
+  // Internal notification system
+  const [notifications, setNotifications] = useState([]);
+
+  // Internal notification function
+  const addNotification = (title, message, type = 'success') => {
+    const id = Date.now();
+    const newNotification = { id, title, message, type };
+    
+    setNotifications(prev => [...prev, newNotification]);
+    
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 4000);
+  };
 
   // Lock background scroll whenever a drawer is open
   useEffect(() => {
@@ -176,17 +197,153 @@ export default function MyomMeal() {
     };
   };
 
+  // Place order function
+  const handleConfirmOrder = async () => {
+    if (!user) {
+      addNotification("Error", "Please login first", "error");
+      return;
+    }
+
+    if (Object.keys(cart).length === 0) {
+      addNotification("Error", "Your cart is empty", "error");
+      return;
+    }
+
+    setIsPlacingOrder(true);
+
+    try {
+      // Prepare order items
+      const orderItems = categories
+        .filter(cat => cart[cat.name])
+        .map(cat => {
+          const row = cart[cat.name];
+          const macros = itemMacros(cat.name);
+          return {
+            item_id: row.option.id,
+            title: row.option.name,
+            category: cat.name,
+            qty: row.qty,
+            unit: cat.unit,
+            price: macros.price,
+            calories: macros.cals,
+            protein: macros.p,
+            carbs: macros.c,
+            fats: macros.f,
+          };
+        });
+
+      // Create order in database
+      const orderData = {
+        user_id: user.id,
+        items: orderItems,
+        total_price: totals.price,
+        total_calories: totals.calories,
+        total_protein: totals.protein,
+        total_carbs: totals.carbs,
+        total_fats: totals.fats,
+        delivery_type: 'pickup',
+        status: 'pending',
+        phone: user.phone || '',
+        created_at: new Date().toISOString()
+      };
+
+      // Only try to save to database if supabase is available
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('orders')
+          .insert([orderData])
+          .select()
+          .single();
+
+        if (error) throw error;
+      }
+
+      // Success!
+      addNotification("Order Placed! 🎉", `Your custom meal order for ₹${totals.price} has been placed successfully!`);
+      
+      // Clear cart and go back
+      setCart({});
+      setShowCart(false);
+      setTimeout(() => {
+  if (onBack) {
+    onBack();
+  } else if (setPage) {
+    setPage("menu");
+  }
+}, 1500);
+
+
+    } catch (error) {
+      console.error('Error placing order:', error);
+      addNotification("Error", "Failed to place order. Please try again.", "error");
+    } finally {
+      setIsPlacingOrder(false);
+    }
+  };
+
+  // Handle back button
+  // Handle back button
+const handleBackButton = () => {
+  if (onBack) {
+    onBack();
+  } else if (setPage) {
+    setPage("menu");
+  } else {
+    // Fallback: go back in browser history
+    window.history.back();
+  }
+};
+
+
   return (
-    <div className="pb-28">
+    <div className="pb-28 bg-gradient-to-br from-green-50 via-white to-green-50 min-h-screen">
+      {/* Notifications */}
+      <div className="fixed top-4 right-4 z-50 space-y-2">
+        {notifications.map(notification => (
+          <motion.div
+            key={notification.id}
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 100 }}
+            className={`p-4 rounded-xl shadow-lg max-w-sm ${
+              notification.type === 'error' 
+                ? 'bg-red-500 text-white' 
+                : 'bg-green-500 text-white'
+            }`}
+          >
+            <h4 className="font-semibold">{notification.title}</h4>
+            <p className="text-sm opacity-90">{notification.message}</p>
+          </motion.div>
+        ))}
+      </div>
+
       {/* Top category navigation */}
       <div className="p-4">
+        {/* Back Button Header */}
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={handleBackButton}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-green-200 hover:bg-green-50 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            <span className="text-sm font-medium text-green-700">Back to Menu</span>
+          </button>
+          
+          <h1 className="text-lg font-bold text-neutral-900">Build Your Meal</h1>
+          <div className="w-20"></div> {/* Spacer for center alignment */}
+        </div>
+
         <div className="flex justify-around mb-4">
           {categories.map((cat, i) => (
             <button
               key={cat.name}
               onClick={() => setCurrentCategory(i)}
-              className={`px-3 py-1.5 text-sm rounded-2xl ${
-                i === currentCategory ? "bg-black text-white" : "bg-neutral-200"
+              className={`px-3 py-1.5 text-sm rounded-2xl transition-colors ${
+                i === currentCategory 
+                  ? "bg-gradient-to-r from-green-600 to-green-700 text-white" 
+                  : "bg-green-100 text-green-700 hover:bg-green-200"
               }`}
             >
               {cat.name}
@@ -209,7 +366,7 @@ export default function MyomMeal() {
               <div
                 key={opt.id}
                 className={`min-w-[160px] bg-white rounded-xl border shadow-sm p-3 cursor-pointer active:scale-[0.99] transition ${
-                  isSelected ? "border-black ring-1 ring-black" : "border-neutral-200"
+                  isSelected ? "border-green-500 ring-2 ring-green-200" : "border-neutral-200 hover:border-green-300"
                 }`}
                 onClick={() => handleOptionTap(currentCategory, opt)}
               >
@@ -224,7 +381,7 @@ export default function MyomMeal() {
                 </p>
 
                 {isSelected && (
-                  <div className="mt-2 text-center text-xs text-neutral-700">
+                  <div className="mt-2 text-center text-xs text-green-700 bg-green-50 py-1 rounded-lg">
                     Selected: {row.qty}{cat.unit}
                   </div>
                 )}
@@ -237,13 +394,13 @@ export default function MyomMeal() {
       {/* Sticky black bar (₹ + View Cart) */}
       <div className="fixed bottom-0 left-0 right-0 z-40">
         <div className="max-w-screen-sm mx-auto px-4 pb-[env(safe-area-inset-bottom)]">
-          <div className="w-full rounded-3xl bg-black text-white px-5 py-4 text-sm font-medium flex items-center justify-between shadow-lg">
+          <div className="w-full rounded-3xl bg-gradient-to-r from-green-600 to-green-700 text-white px-5 py-4 text-sm font-medium flex items-center justify-between shadow-lg">
             <span>₹ {totals.price}</span>
             <button
               onClick={() => { setShowCart(true); setCartView("items"); }}
-              className="rounded-xl border border-white/20 px-3 py-1.5 active:scale-95"
+              className="rounded-xl border border-white/20 px-3 py-1.5 active:scale-95 hover:bg-white/10 transition-all"
             >
-              View Cart
+              View Cart ({totals.items})
             </button>
           </div>
         </div>
@@ -310,8 +467,10 @@ export default function MyomMeal() {
                           <button
                             key={q}
                             onClick={() => setPendingQty(q)}
-                            className={`px-3 py-2 rounded-2xl border text-sm ${
-                              pendingQty === q ? "bg-black text-white border-black" : "bg-white border-neutral-300"
+                            className={`px-3 py-2 rounded-2xl border text-sm transition-colors ${
+                              pendingQty === q 
+                                ? "bg-green-600 text-white border-green-600" 
+                                : "bg-white border-green-300 text-green-700 hover:bg-green-50"
                             }`}
                           >
                             {q}{unit}
@@ -328,7 +487,7 @@ export default function MyomMeal() {
                           step={unit === "g" ? 10 : 1}
                           value={pendingQty}
                           onChange={(e) => setPendingQty(Number(e.target.value))}
-                          className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-black outline-none"
+                          className="w-full px-3 py-2 border border-green-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none"
                         />
                         <p className="mt-1 text-xs text-neutral-500">
                           Tip: {unit === "g" ? `go in multiples of ${base}${unit} for easier adjustments` : "use whole numbers"}
@@ -339,10 +498,10 @@ export default function MyomMeal() {
                 })()}
               </div>
 
-              <div className="p-4 border-t bg-neutral-50 sticky bottom-0 rounded-b-3xl">
+              <div className="p-4 border-t bg-green-50 sticky bottom-0 rounded-b-3xl">
                 <button
                   onClick={confirmQuantity}
-                  className="w-full py-3 bg-black text-white rounded-2xl font-medium active:scale-[0.98]"
+                  className="w-full py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-2xl font-medium active:scale-[0.98]"
                 >
                   Add to Meal
                 </button>
@@ -396,18 +555,18 @@ export default function MyomMeal() {
                         if (!row) return null;
                         const macros = itemMacros(cat.name);
                         return (
-                          <div key={cat.name} className="flex gap-3 items-center rounded-2xl border p-3">
+                          <div key={cat.name} className="flex gap-3 items-center rounded-2xl border border-green-200 p-3 bg-green-50">
                             <img src={row.option.image} alt="" className="h-14 w-14 rounded-xl object-cover" />
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-medium truncate">{row.option.name}</p>
                               <p className="text-xs text-neutral-500">
                                 {macros.qty}{macros.unit} • {macros.cals} kcal • {macros.p}g P • {macros.c}g C • {macros.f}g F
                               </p>
-                              <p className="text-xs text-neutral-500 mt-1">₹ {macros.price}</p>
+                              <p className="text-xs text-green-700 mt-1 font-medium">₹ {macros.price}</p>
                             </div>
 
                             {/* Qty control (step = baseAmount) */}
-                            <div className="flex items-center gap-2 bg-neutral-100 rounded-xl px-2 py-1">
+                            <div className="flex items-center gap-2 bg-white rounded-xl px-2 py-1 border border-green-300">
                               <button
                                 onClick={() => {
                                   // if trying to go below 1 step → remove item
@@ -415,20 +574,20 @@ export default function MyomMeal() {
                                   if ((row.qty - step) < step) return removeFromCart(cat.name);
                                   adjustCartQty(cat.name, -1);
                                 }}
-                                className="h-7 w-7 grid place-items-center rounded-lg border border-neutral-300 active:scale-95"
+                                className="h-7 w-7 grid place-items-center rounded-lg border border-green-300 hover:bg-red-50 active:scale-95"
                                 aria-label="Decrease"
                               >
-                                <Minus className="h-4 w-4" />
+                                <Minus className="h-4 w-4 text-red-500" />
                               </button>
-                              <span className="w-14 text-center text-sm font-medium">
+                              <span className="w-14 text-center text-sm font-medium text-green-800">
                                 {row.qty}{cat.unit}
                               </span>
                               <button
                                 onClick={() => adjustCartQty(cat.name, 1)}
-                                className="h-7 w-7 grid place-items-center rounded-lg border border-neutral-300 active:scale-95"
+                                className="h-7 w-7 grid place-items-center rounded-lg border border-green-300 hover:bg-green-50 active:scale-95"
                                 aria-label="Increase"
                               >
-                                <Plus className="h-4 w-4" />
+                                <Plus className="h-4 w-4 text-green-500" />
                               </button>
                             </div>
                           </div>
@@ -442,7 +601,7 @@ export default function MyomMeal() {
                     {/* Address selector */}
                     <div>
                       <label className="block font-medium text-neutral-700 mb-1">Delivery Address</label>
-                      <select className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-black outline-none">
+                      <select className="w-full px-3 py-2 border border-green-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none">
                         <option>Home - 123 Street, City</option>
                         <option>Office - 456 Avenue, City</option>
                         <option>Add new address...</option>
@@ -455,7 +614,7 @@ export default function MyomMeal() {
                       <input
                         type="text"
                         placeholder="Enter coupon"
-                        className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-black outline-none"
+                        className="w-full px-3 py-2 border border-green-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none"
                       />
                     </div>
 
@@ -464,10 +623,10 @@ export default function MyomMeal() {
                       <p className="font-medium text-neutral-700 mb-1">Delivery</p>
                       <div className="flex gap-3">
                         <label className="flex items-center gap-2">
-                          <input type="radio" name="delivery" defaultChecked /> Pickup
+                          <input type="radio" name="delivery" defaultChecked className="text-green-600" /> Pickup
                         </label>
                         <label className="flex items-center gap-2">
-                          <input type="radio" name="delivery" /> Home Delivery
+                          <input type="radio" name="delivery" className="text-green-600" /> Home Delivery
                         </label>
                       </div>
                     </div>
@@ -477,13 +636,13 @@ export default function MyomMeal() {
                       <p className="font-medium text-neutral-700 mb-1">Payment</p>
                       <div className="flex flex-col gap-2">
                         <label className="flex items-center gap-2">
-                          <input type="radio" name="payment" defaultChecked /> UPI
+                          <input type="radio" name="payment" defaultChecked className="text-green-600" /> UPI
                         </label>
                         <label className="flex items-center gap-2">
-                          <input type="radio" name="payment" /> Card
+                          <input type="radio" name="payment" className="text-green-600" /> Card
                         </label>
                         <label className="flex items-center gap-2">
-                          <input type="radio" name="payment" /> Cash on Delivery
+                          <input type="radio" name="payment" className="text-green-600" /> Cash on Delivery
                         </label>
                       </div>
                     </div>
@@ -508,26 +667,26 @@ export default function MyomMeal() {
               </div>
 
               {/* Footer (nutrition + proceed / confirm) */}
-              <div className="p-4 border-t bg-neutral-50 space-y-4 sticky bottom-0 rounded-b-3xl">
+              <div className="p-4 border-t bg-green-50 space-y-4 sticky bottom-0 rounded-b-3xl">
                 {cartView === "items" ? (
                   <>
                     {/* Nutrition summary */}
                     <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="rounded-2xl bg-white border p-3">
-                        <p className="text-xs text-neutral-500">Calories</p>
-                        <p className="text-lg font-semibold">{totals.calories} kcal</p>
+                      <div className="rounded-2xl bg-white border border-green-200 p-3">
+                        <p className="text-xs text-green-600">Calories</p>
+                        <p className="text-lg font-semibold text-green-800">{totals.calories} kcal</p>
                       </div>
-                      <div className="rounded-2xl bg-white border p-3">
-                        <p className="text-xs text-neutral-500">Protein</p>
-                        <p className="text-lg font-semibold">{totals.protein} g</p>
+                      <div className="rounded-2xl bg-white border border-green-200 p-3">
+                        <p className="text-xs text-green-600">Protein</p>
+                        <p className="text-lg font-semibold text-green-800">{totals.protein} g</p>
                       </div>
-                      <div className="rounded-2xl bg-white border p-3">
-                        <p className="text-xs text-neutral-500">Carbs</p>
-                        <p className="text-lg font-semibold">{totals.carbs} g</p>
+                      <div className="rounded-2xl bg-white border border-green-200 p-3">
+                        <p className="text-xs text-green-600">Carbs</p>
+                        <p className="text-lg font-semibold text-green-800">{totals.carbs} g</p>
                       </div>
-                      <div className="rounded-2xl bg-white border p-3">
-                        <p className="text-xs text-neutral-500">Fats</p>
-                        <p className="text-lg font-semibold">{totals.fats} g</p>
+                      <div className="rounded-2xl bg-white border border-green-200 p-3">
+                        <p className="text-xs text-green-600">Fats</p>
+                        <p className="text-lg font-semibold text-green-800">{totals.fats} g</p>
                       </div>
                     </div>
 
@@ -537,7 +696,7 @@ export default function MyomMeal() {
                       <button
                         disabled={totals.items === 0}
                         onClick={() => setCartView("checkout")}
-                        className="px-4 py-3 rounded-2xl bg-black text-white text-sm font-medium active:scale-[0.99] disabled:opacity-50"
+                        className="px-4 py-3 rounded-2xl bg-gradient-to-r from-green-600 to-green-700 text-white text-sm font-medium active:scale-[0.99] disabled:opacity-50"
                       >
                         Proceed to Checkout
                       </button>
@@ -545,12 +704,23 @@ export default function MyomMeal() {
                   </>
                 ) : (
                   <>
-                    <button className="w-full py-3 bg-black text-white rounded-2xl font-medium active:scale-[0.98]">
-                      Confirm Order
+                    <button 
+                      onClick={handleConfirmOrder}
+                      disabled={isPlacingOrder || Object.keys(cart).length === 0}
+                      className="w-full py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-2xl font-medium active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isPlacingOrder ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                          Placing Order...
+                        </>
+                      ) : (
+                        `Confirm Order • ₹${totals.price}`
+                      )}
                     </button>
                     <button
                       onClick={() => setCartView("items")}
-                      className="w-full py-2 text-sm text-neutral-600"
+                      className="w-full py-2 text-sm text-green-600 hover:text-green-700"
                     >
                       ← Back to Cart
                     </button>
@@ -562,10 +732,17 @@ export default function MyomMeal() {
         )}
       </AnimatePresence>
 
-      {/* tiny style helper to hide horizontal scrollbar on sliders */}
+      {/* Styles */}
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+          animation: spin 1s linear infinite;
+        }
       `}</style>
     </div>
   );
