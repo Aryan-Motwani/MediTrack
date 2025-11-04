@@ -1037,7 +1037,7 @@ const cancelSubscriptionAndOrders = async (subscriptionId, user_id) => {
   <div className="relative h-32 rounded-2xl overflow-hidden">
     {[
       { 
-        img: "https://thumbs.dreamstime.com/b/pieces-pizza-different-various-types-banner-old-retro-boards-still-life-concept-closeup-129819511.jpg", 
+        img: "https://media.istockphoto.com/id/1442417585/photo/person-getting-a-piece-of-cheesy-pepperoni-pizza.jpg?s=612x612&w=0&k=20&c=k60TjxKIOIxJpd4F4yLMVjsniB4W1BpEV4Mi_nb4uJU=", 
         title: "🍕 Get 50% off on Pizza!", 
         subtitle: "Order now and save big" 
       },
