@@ -1042,7 +1042,7 @@ const cancelSubscriptionAndOrders = async (subscriptionId, user_id) => {
         subtitle: "Order now and save big" 
       },
       { 
-        img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRKX_pA57WYMzHv7Ykeo6PziwtAb26UuiKc9g&s", 
+        img: "https://t3.ftcdn.net/jpg/00/27/57/96/360_F_27579652_tM7V4fZBBw8RLmZo0Bi8WhtO2EosTRFD.jpg", 
         title: "🍛 Special Biryani Deal", 
         subtitle: "Free delivery on orders above ₹300" 
       },
