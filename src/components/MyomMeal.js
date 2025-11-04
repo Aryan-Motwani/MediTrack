@@ -1,13 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Plus, Minus } from "lucide-react";
+import AddressForm from './AddressForm';
 
-/**
- * Categories
- * - unit & baseAmount control the measurement & step (e.g., 100g, 1 tsp, 1 count)
- * - pricePerBase is the price for exactly baseAmount of any option within the category
- * - nutrition values in each option are defined PER baseAmount (so scaling is clean)
- */
+
 const categories = [
   {
     name: "Protein",
@@ -78,6 +74,10 @@ export default function MyomMeal({ onBack, setPage, user, supabase }) {
   
   // Internal notification system
   const [notifications, setNotifications] = useState([]);
+
+  // Add state for address management
+const [selectedAddress, setSelectedAddress] = useState(null);
+const [showAddressForm, setShowAddressForm] = useState(false);
 
   // Internal notification function
   const addNotification = (title, message, type = 'success') => {
@@ -237,11 +237,11 @@ export default function MyomMeal({ onBack, setPage, user, supabase }) {
         user_id: user.id,
         items: orderItems,
         total_price: totals.price,
-        total_calories: totals.calories,
-        total_protein: totals.protein,
-        total_carbs: totals.carbs,
-        total_fats: totals.fats,
-        delivery_type: 'pickup',
+        // total_calories: totals.calories,
+        // total_protein: totals.protein,
+        // total_carbs: totals.carbs,
+        // total_fats: totals.fats,
+        delivery_address: 'pickup',
         status: 'pending',
         phone: user.phone || '',
         created_at: new Date().toISOString()
@@ -597,74 +597,43 @@ const handleBackButton = () => {
                   </div>
                 ) : (
                   // Checkout view
-                  <div className="p-4 space-y-5 text-sm">
-                    {/* Address selector */}
-                    <div>
-                      <label className="block font-medium text-neutral-700 mb-1">Delivery Address</label>
-                      <select className="w-full px-3 py-2 border border-green-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none">
-                        <option>Home - 123 Street, City</option>
-                        <option>Office - 456 Avenue, City</option>
-                        <option>Add new address...</option>
-                      </select>
-                    </div>
-
-                    {/* Coupon */}
-                    <div>
-                      <label className="block font-medium text-neutral-700 mb-1">Coupon Code</label>
-                      <input
-                        type="text"
-                        placeholder="Enter coupon"
-                        className="w-full px-3 py-2 border border-green-300 rounded-xl focus:ring-2 focus:ring-green-500 outline-none"
-                      />
-                    </div>
-
-                    {/* Delivery */}
-                    <div>
-                      <p className="font-medium text-neutral-700 mb-1">Delivery</p>
-                      <div className="flex gap-3">
-                        <label className="flex items-center gap-2">
-                          <input type="radio" name="delivery" defaultChecked className="text-green-600" /> Pickup
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input type="radio" name="delivery" className="text-green-600" /> Home Delivery
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Payment */}
-                    <div>
-                      <p className="font-medium text-neutral-700 mb-1">Payment</p>
-                      <div className="flex flex-col gap-2">
-                        <label className="flex items-center gap-2">
-                          <input type="radio" name="payment" defaultChecked className="text-green-600" /> UPI
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input type="radio" name="payment" className="text-green-600" /> Card
-                        </label>
-                        <label className="flex items-center gap-2">
-                          <input type="radio" name="payment" className="text-green-600" /> Cash on Delivery
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Price Summary */}
-                    <div className="border-t pt-3 text-sm">
-                      <div className="flex justify-between">
-                        <span>Subtotal</span>
-                        <span>₹ {totals.price}</span>
-                      </div>
-                      <div className="flex justify-between text-green-600">
-                        <span>Discount</span>
-                        <span>- ₹ 0</span>
-                      </div>
-                      <div className="flex justify-between text-base font-semibold mt-1">
-                        <span>Total</span>
-                        <span>₹ {totals.price}</span>
-                      </div>
-                    </div>
-                  </div>
+                      <div>
+      <div className="flex items-center justify-between mb-3">
+        <label className="block font-medium text-neutral-700">Delivery Address</label>
+        <button
+          onClick={() => setShowAddressForm(true)}
+          className="text-sm text-green-600 hover:text-green-700"
+        >
+          + Add New
+        </button>
+      </div>
+      
+      {selectedAddress ? (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+          <p className="text-sm font-medium text-gray-900">{selectedAddress.fullAddress}</p>
+          <button
+            onClick={() => setShowAddressForm(true)}
+            className="text-xs text-green-600 hover:text-green-700 mt-1"
+          >
+            Edit Address
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowAddressForm(true)}
+          className="w-full px-3 py-3 border-2 border-dashed border-green-300 rounded-xl text-green-600 hover:bg-green-50 transition-colors"
+        >
+          + Add Delivery Address
+        </button>
+      )}
+      
+    </div>
                 )}
+                
+
               </div>
+
+              
 
               {/* Footer (nutrition + proceed / confirm) */}
               <div className="p-4 border-t bg-green-50 space-y-4 sticky bottom-0 rounded-b-3xl">
@@ -727,10 +696,42 @@ const handleBackButton = () => {
                   </>
                 )}
               </div>
+
+              <AnimatePresence>
+  {showAddressForm && (
+    <motion.div
+      className="fixed inset-0 z-60 bg-black/40"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={() => setShowAddressForm(false)}
+    >
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <motion.div
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.95, opacity: 0 }}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-md"
+        >
+          <AddressForm
+            onSubmit={(address) => {
+              setSelectedAddress(address);
+              setShowAddressForm(false);
+              // Optionally save to user's address list in database
+            }}
+            initialAddress={selectedAddress}
+          />
+        </motion.div>
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
 
       {/* Styles */}
       <style>{`

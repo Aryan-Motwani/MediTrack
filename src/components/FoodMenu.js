@@ -17,8 +17,7 @@ import {
   signOut,
   onAuthStateChanged
 } from 'firebase/auth';
-
-
+import AddressForm from './AddressForm';
 
 
 // Demo users for manual auth
@@ -78,6 +77,10 @@ const [subscriptionCart, setSubscriptionCart] = useState({});
 const [showSubscriptionSetup, setShowSubscriptionSetup] = useState(false);
 const [subscriptionDuration, setSubscriptionDuration] = useState(7);
 const [subscriptionTimeSlot, setSubscriptionTimeSlot] = useState('13:00');
+
+// Add state for address management
+const [selectedAddress, setSelectedAddress] = useState(null);
+const [showAddressForm, setShowAddressForm] = useState(false);
 
 
 
@@ -159,15 +162,19 @@ const startSubscription = async () => {
   try {
     // Prepare subscription data in your existing format
     const subscriptionData = {
-      userid: user.id,
-      fooditems: subscriptionCartList.map(item => ({
+      user_id: user.id,
+      food_items: subscriptionCartList.map(item => ({
         itemid: item.id,
         quantity: subscriptionCart[item.id]
       })),
       days: subscriptionDuration,
       slot: subscriptionTimeSlot,
-      startdate: new Date().toISOString().split('T')[0],
-      status: 'active'
+      start_date: new Date().toISOString().split('T')[0],
+      // end date should be start date + days
+      end_date : new Date(new Date().setDate(new Date().getDate() + subscriptionDuration)).toISOString().split('T')[0],
+
+      status: 'active',
+      active : true
     };
 
     const { error } = await supabase
@@ -199,7 +206,7 @@ const fetchUserSubscriptions = async () => {
     const { data, error } = await supabase
       .from('subscriptions')
       .select('*')
-      .eq('userid', user.id)
+      .eq('user_id', user.id)
       .eq('status', 'active')
       .single();
 
@@ -460,11 +467,11 @@ const handleLogout = async () => {
 
   const start = new Date();
   const end = new Date(start.getTime() + (subscriptionForm.days - 1) * 24 * 60 * 60 * 1000);
-  const foodItems = subscriptionForm.foodIds.map(id => ({ item_id: id, qty: 1 }));
+  const food_Items = subscriptionForm.foodIds.map(id => ({ item_id: id, qty: 1 }));
 
   const payload = {
     user_id: user.id,
-    food_items: foodItems,
+    food_items: food_Items,
     days: subscriptionForm.days,
     slot: subscriptionForm.slot,
     start_date: start.toISOString().split('T')[0],
@@ -542,7 +549,7 @@ const placeSubscriptionOrder = async (subscriptionId, subscriptionData) => {
 };
 
 
-const cancelSubscriptionAndOrders = async (subscriptionId, userId) => {
+const cancelSubscriptionAndOrders = async (subscriptionId, user_id) => {
   const { error: subError } = await supabase
     .from('subscriptions')
     .update({ status: 'cancelled', active: false })
@@ -556,7 +563,7 @@ const cancelSubscriptionAndOrders = async (subscriptionId, userId) => {
   const { data: subscriptionOrders, error: ordersError } = await supabase
     .from('orders')
     .select('id')
-    .eq('user_id', userId)
+    .eq('user_id', user_id)
     .eq('subscription_id', subscriptionId);
 
   if (ordersError) {
@@ -1561,12 +1568,12 @@ const categoryIcons = {
                             >
                               Order More
                             </button>
-                            <button
+                            {/* <button
                               onClick={() => setPage("orders")}
                               className="px-6 py-3 rounded-2xl border border-neutral-300 font-medium active:scale-[0.99]"
                             >
                               View Order Status
-                            </button>
+                            </button> */}
                           </div>
                         </div>
                       </motion.section>
@@ -1595,7 +1602,7 @@ const categoryIcons = {
         </p>
         <p className="text-green-700 text-sm mb-3">
           Your meals: <b>
-            {activeSub.fooditems?.map(({ itemid }) => {
+            {activeSub.food_items?.map(({ itemid }) => {
               const menuItem = menuItems.find(m => String(m.id) === String(itemid));
               return menuItem?.title;
             }).join(', ')}
@@ -1603,7 +1610,7 @@ const categoryIcons = {
         </p>
         <div className="flex items-center justify-between">
           <p className="text-xs text-green-600">
-            Started {activeSub.startdate} • Ends {activeSub.enddate}
+            Started {activeSub.start_date} • Ends {activeSub.end_date}
           </p>
           <button 
             className="px-4 py-2 rounded-xl border border-red-400 text-red-700 font-semibold bg-red-50 text-sm" 
@@ -2222,19 +2229,70 @@ const categoryIcons = {
                             </>
                           ) : (
                             <>
+
+                                    // Checkout view
+                      <div>
+      <div className="flex items-center justify-between mb-3">
+        <label className="block font-medium text-neutral-700">Delivery Address</label>
+        <button
+          onClick={() => setShowAddressForm(true)}
+          className="text-sm text-green-600 hover:text-green-700"
+        >
+          + Add New
+        </button>
+      </div>
+      
+      {selectedAddress ? (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-3">
+          <p className="text-sm font-medium text-gray-900">{selectedAddress.fullAddress}</p>
+          <button
+            onClick={() => setShowAddressForm(true)}
+            className="text-xs text-green-600 hover:text-green-700 mt-1"
+          >
+            Edit Address
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowAddressForm(true)}
+          className="w-full px-3 py-3 border-2 border-dashed border-green-300 rounded-xl text-green-600 hover:bg-green-50 transition-colors"
+        >
+          + Add Delivery Address
+        </button>
+      )}
+      
+    </div>
                               <div className="space-y-5 text-sm">
-                                <div>
-                                  <label className="block font-medium text-neutral-700 mb-1">Delivery Address</label>
-                                  <select 
-                                    value={deliveryAddress}
-                                    onChange={(e) => setDeliveryAddress(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-black outline-none"
-                                  >
-                                    <option value="Home - 123 Street, City">Home - 123 Street, City</option>
-                                    <option value="Office - 456 Avenue, City">Office - 456 Avenue, City</option>
-                                    <option value="Other">Add new address...</option>
-                                  </select>
-                                </div>
+                                <AnimatePresence>
+                                  {showAddressForm && (
+                                    <motion.div
+                                      className="fixed inset-0 z-60 bg-black/40"
+                                      initial={{ opacity: 0 }}
+                                      animate={{ opacity: 1 }}
+                                      exit={{ opacity: 0 }}
+                                      onClick={() => setShowAddressForm(false)}
+                                    >
+                                      <div className="flex items-center justify-center min-h-screen p-4">
+                                        <motion.div
+                                          initial={{ scale: 0.95, opacity: 0 }}
+                                          animate={{ scale: 1, opacity: 1 }}
+                                          exit={{ scale: 0.95, opacity: 0 }}
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="w-full max-w-md"
+                                        >
+                                          <AddressForm
+                                            onSubmit={(address) => {
+                                              setSelectedAddress(address);
+                                              setShowAddressForm(false);
+                                              // Optionally save to user's address list in database
+                                            }}
+                                            initialAddress={selectedAddress}
+                                          />
+                                        </motion.div>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
         
                                 <div>
                                   <label className="block font-medium text-neutral-700 mb-1">Coupon Code</label>
@@ -2247,7 +2305,7 @@ const categoryIcons = {
                                   />
                                 </div>
         
-                                <div>
+                                {/* <div>
                                   <p className="font-medium text-neutral-700 mb-1">Delivery</p>
                                   <div className="flex gap-3">
                                     <label className="flex items-center gap-2">
@@ -2269,7 +2327,7 @@ const categoryIcons = {
                                       /> Home Delivery
                                     </label>
                                   </div>
-                                </div>
+                                </div> */}
         
                                 <div>
                                   <p className="font-medium text-neutral-700 mb-1">Payment</p>
