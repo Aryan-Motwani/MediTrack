@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Check, X, Truck, Eye, Phone, MapPin, Search as SearchIcon } from "lucide-react";
+import { Clock, Check, X, Truck, Eye, Phone, MapPin } from "lucide-react";
 import { supabase } from '../createClient';
 
 const STATUS_CONFIG = {
@@ -15,19 +15,31 @@ const STATUS_CONFIG = {
 const STATUS_OPTIONS = ["all", "pending", "confirmed", "out_for_delivery", "delivered", "cancelled"];
 
 export default function OrdersPage({ setPage }) {
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [allOrders, setAllOrders] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [updating, setUpdating] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterDate, setFilterDate] = useState(new Date().toISOString().split('T')[0]); // Default to today
 
   useEffect(() => {
-    fetchOrders();
+    const fetchAllOrders = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        setAllOrders(data || []);
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+      }
+    };
+    fetchAllOrders();
 
     const subscription = supabase
       .channel('orders-channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchOrders)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchAllOrders)
       .subscribe();
 
     return () => {
@@ -35,26 +47,20 @@ export default function OrdersPage({ setPage }) {
     };
   }, []);
 
-  const fetchOrders = async () => {
-    setLoading(true);
-    try {
-      let query = supabase.from('orders').select('*').order('created_at', { ascending: false });
-      if (filterStatus !== "all") {
-        query = query.eq('status', filterStatus);
-      }
-      const { data, error } = await query;
-      if (error) throw error;
-      setOrders(data || []);
-    } catch (error) {
-      console.error('Error fetching orders:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const todayString = new Date().toISOString().split('T')[0];
 
-  useEffect(() => {
-    fetchOrders();
-  }, [filterStatus]);
+const filteredOrders = allOrders.filter(order => {
+  const matchesStatus = filterStatus === 'all' || order.status === filterStatus;
+
+  // Treat null delivery_date as today's date
+  const orderDate = order.delivery_date || todayString;
+  const matchesDate = !filterDate || orderDate === filterDate;
+
+  const matchesSearch = !searchTerm.trim() || order.items.some(item => item.title.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  return matchesStatus && matchesDate && matchesSearch;
+});
+
 
   const updateOrderStatus = async (orderId, newStatus) => {
     setUpdating(orderId);
@@ -64,7 +70,7 @@ export default function OrdersPage({ setPage }) {
         .update({ status: newStatus, updated_at: new Date().toISOString() })
         .eq('id', orderId);
       if (error) throw error;
-      setOrders(prev => prev.map(order => order.id === orderId ? { ...order, status: newStatus, updated_at: new Date().toISOString() } : order));
+      setAllOrders(prev => prev.map(order => order.id === orderId ? { ...order, status: newStatus, updated_at: new Date().toISOString() } : order));
     } catch (error) {
       console.error('Error updating order status:', error);
       alert('Failed to update order status');
@@ -96,23 +102,8 @@ export default function OrdersPage({ setPage }) {
     return actions;
   };
 
-  const filteredOrders = orders.filter(order => !searchTerm.trim() || order.items.some(item => item.title.toLowerCase().includes(searchTerm.toLowerCase())));
-  const totalAmount = filteredOrders.reduce((sum, order) => sum + (order.total_price || 0), 0);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="text-center bg-white p-8 rounded-3xl shadow-xl border border-slate-200">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-blue-600 mx-auto"></div>
-          <p className="text-slate-700 mt-4 font-medium">Loading orders...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      {/* Navbar */}
       <header className="sticky top-0 z-30 backdrop-blur-xl bg-white/80 border-b border-slate-200/60 shadow-sm">
         <div className="max-w-screen-lg mx-auto px-6 py-4 flex items-center gap-4">
           <button onClick={() => setPage("menu")} className="h-11 w-11 rounded-2xl border border-slate-300 bg-white hover:bg-slate-50 grid place-items-center transition-all duration-200 shadow-sm hover:shadow-md active:scale-95" aria-label="Back to menu">
@@ -124,20 +115,19 @@ export default function OrdersPage({ setPage }) {
           </div>
           <div className="flex gap-6">
             <div className="bg-white px-4 py-2 rounded-3xl border border-slate-200 shadow-sm text-center">
-              <p className="text-lg font-bold text-slate-900">{orders.length}</p>
+              <p className="text-lg font-bold text-slate-900">{allOrders.length}</p>
               <p className="text-xs text-slate-500">All Orders</p>
             </div>
             <div className="bg-amber-50 px-4 py-2 rounded-3xl border border-amber-200 text-center">
-              <p className="text-lg font-bold text-amber-800">{orders.filter(o => o.status === 'pending').length}</p>
+              <p className="text-lg font-bold text-amber-800">{allOrders.filter(o => o.status === 'pending').length}</p>
               <p className="text-xs text-amber-600">Pending</p>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Tabs under navbar */}
       <div className="sticky top-[72px] z-20 bg-white border-b border-slate-200 shadow-sm">
-        <nav className="max-w-screen-lg mx-auto px-6 py-2 flex space-x-4 overflow-x-auto">
+        <nav className="max-w-screen-lg mx-auto px-6 py-2 flex items-center space-x-4 overflow-x-auto">
           {STATUS_OPTIONS.map(status => (
             <button
               key={status}
@@ -152,14 +142,24 @@ export default function OrdersPage({ setPage }) {
               {STATUS_CONFIG[status].label}
             </button>
           ))}
-          {/* Total amount display */}
-          <div className="ml-auto flex items-center text-sm text-slate-600">
-            Total amount: <span className="font-semibold ml-1 text-slate-900">₹{totalAmount.toFixed(2)}</span>
-          </div>
+          <input
+            type="date"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="ml-auto border border-slate-300 rounded-md px-3 py-2 text-sm"
+            aria-label="Filter orders by delivery date"
+          />
+          {/* <input
+            type="text"
+            placeholder="Search orders..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="border border-slate-300 rounded-md px-3 py-2 text-sm ml-4 flex-grow max-w-sm"
+            aria-label="Search orders by item name"
+          /> */}
         </nav>
       </div>
 
-      {/* Main content */}
       <main className="max-w-screen-lg mx-auto px-6 py-8">
         {filteredOrders.length === 0 ? (
           <div className="text-center py-20">
@@ -222,7 +222,6 @@ export default function OrdersPage({ setPage }) {
                               </div>
                             </div>
                           )}
-
                           {order.delivery_address && (
                             <div className="flex items-center gap-3">
                               <div className="h-10 w-10 rounded-xl bg-emerald-100 grid place-items-center">
@@ -231,6 +230,8 @@ export default function OrdersPage({ setPage }) {
                               <div>
                                 <p className="text-xs font-medium text-slate-500 uppercase">Address</p>
                                 <p className="font-semibold">{order.delivery_address}</p>
+                                <p className="text-xs font-medium text-slate-500 uppercase">Delivery Date</p>
+                                <p className="font-semibold">{order.delivery_date}</p>
                               </div>
                             </div>
                           )}
@@ -262,7 +263,7 @@ export default function OrdersPage({ setPage }) {
                                     <p className="font-semibold">{item.title}</p>
                                     <p className="text-sm text-slate-600">Quantity: {item.qty}</p>
                                   </div>
-                                  <div className="font-bold">₹{(item.price * item.qty).toFixed(2)}</div>
+                                  {/* <div className="font-bold">₹{(item.price * item.qty).toFixed(2)}</div> */}
                                 </div>
                               ))}
                             </div>

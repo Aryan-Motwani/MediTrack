@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, X, AlertCircle, CheckCircle } from 'lucide-react';
+import { Calendar, X, AlertCircle, CheckCircle, PauseCircle, Clock } from 'lucide-react';
 import { supabase } from "../createClient";
 
 export default function SubscriptionCalendar({ user, activeSub, menuItems }) {
@@ -9,36 +9,36 @@ export default function SubscriptionCalendar({ user, activeSub, menuItems }) {
   const [notifications, setNotifications] = useState([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmData, setConfirmData] = useState(null);
+  const [selectedDate, setSelectedDate] = useState(null);
 
-  // Generate calendar days for the month
+  const cancelBeforeTimeInMinutes = 120; // 2 hours
+
+
   const generateCalendarDays = () => {
     const year = selectedMonth.getFullYear();
     const month = selectedMonth.getMonth();
     const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
     const startDate = new Date(firstDay);
     startDate.setDate(startDate.getDate() - firstDay.getDay());
-    
+
     const days = [];
     const current = new Date(startDate);
-    
-    for (let i = 0; i < 42; i++) { // 6 weeks * 7 days
+
+    for (let i = 0; i < 42; i++) {
       days.push(new Date(current));
       current.setDate(current.getDate() + 1);
     }
-    
     return days;
   };
 
-  // Fetch subscription orders for the month
   const fetchSubscriptionOrders = async () => {
     if (!user || !activeSub) return;
-    
+
     setLoading(true);
     try {
       const startOfMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth(), 1);
       const endOfMonth = new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + 1, 0);
-      
+
       const { data, error } = await supabase
         .from('orders')
         .select('*')
@@ -46,7 +46,7 @@ export default function SubscriptionCalendar({ user, activeSub, menuItems }) {
         .eq('subscription_id', activeSub.id)
         .gte('created_at', startOfMonth.toISOString())
         .lte('created_at', endOfMonth.toISOString());
-      
+
       if (error) throw error;
       setSubscriptionOrders(data || []);
     } catch (error) {
@@ -56,129 +56,124 @@ export default function SubscriptionCalendar({ user, activeSub, menuItems }) {
     }
   };
 
-  // Add notification function
   const addNotification = (title, message, type = 'success') => {
     const id = Date.now();
     const newNotification = { id, title, message, timestamp: new Date(), type };
     setNotifications(prev => [newNotification, ...prev.slice(0, 4)]);
-    
+
     const timeout = type === 'error' ? 8000 : type === 'order_update' ? 6000 : 5000;
     setTimeout(() => {
       setNotifications(prev => prev.filter(n => n.id !== id));
     }, timeout);
   };
 
-  // Handle cancel request (opens modal)
   const handleCancelRequest = (date) => {
-    const dateStr = date.toISOString().split('T')[0];
-    const existingOrder = subscriptionOrders.find(order => 
-      order.created_at.split('T')[0] === dateStr && order.status !== 'cancelled'
+  // Calculate delivery datetime from subscription slot (e.g., 1300 means 1 PM)
+  const dateStr = date.toISOString().split('T')[0];
+  const existingOrder = subscriptionOrders.find(order =>
+    order.created_at.split('T')[0] === dateStr && order.status !== 'cancelled'
+  );
+
+  // Parse slot time (e.g., 1300 means 13:00)
+  const slotStr = activeSub?.slot?.toString().padStart(4, '0') || '1300';
+  const slotHours = parseInt(slotStr.slice(0, 2), 10);
+  const slotMinutes = parseInt(slotStr.slice(2), 10);
+
+  const deliveryDateTime = new Date(date);
+  deliveryDateTime.setHours(slotHours, slotMinutes, 0, 0);
+
+  const now = new Date();
+  const diffMins = (deliveryDateTime - now) / 1000 / 60; // minutes difference
+
+  if (diffMins < cancelBeforeTimeInMinutes) {
+    // Too late to cancel
+    addNotification(
+      'Cancellation Not Allowed',
+      `Meals can only be cancelled at least ${cancelBeforeTimeInMinutes / 60} hours before delivery.`,
+      'error'
     );
+    return;
+  }
 
-    // Get meal name for display
-    const mealName = activeSub?.fooditems?.map(({ itemid }) => {
-      const menuItem = menuItems.find(m => String(m.id) === String(itemid));
-      return menuItem?.title;
-    }).filter(Boolean).join(', ') || 'Subscription meal';
+  const mealName = activeSub?.fooditems?.map(({ itemid }) => {
+    const menuItem = menuItems.find(m => String(m.id) === String(itemid));
+    return menuItem?.title;
+  }).filter(Boolean).join(', ') || 'Subscription meal';
 
-    setConfirmData({ date, existingOrder, mealName });
-    setShowConfirmModal(true);
+  setConfirmData({ date, existingOrder, mealName });
+  setShowConfirmModal(true);
+};
+
+
+  const confirmCancellation = async () => {
+    if (!confirmData) return;
+
+    const { date, existingOrder } = confirmData;
+    const dateStr = date.toISOString().split('T')[0];
+
+    if (existingOrder) {
+      try {
+        const { error } = await supabase
+          .from('orders')
+          .update({ status: 'cancelled' })
+          .eq('id', existingOrder.id);
+
+        if (error) throw error;
+
+        setSubscriptionOrders(prev =>
+          prev.map(order =>
+            order.id === existingOrder.id
+              ? { ...order, status: 'cancelled' }
+              : order
+          )
+        );
+
+        addNotification('Meal Cancelled', `Meal for ${date.toLocaleDateString()} has been cancelled.`);
+      } catch (error) {
+        console.error('Error cancelling meal:', error);
+        addNotification('Error', 'Failed to cancel meal. Please try again.', 'error');
+      }
+    } else {
+      try {
+        const currentSkippedDates = activeSub.skipped_dates || [];
+        const updatedSkippedDates = [...currentSkippedDates, dateStr];
+
+        const { error } = await supabase
+          .from('subscriptions')
+          .update({ skipped_dates: updatedSkippedDates })
+          .eq('id', activeSub.id);
+
+        if (error) throw error;
+
+        addNotification('Meal Skipped', `Meal for ${date.toLocaleDateString()} will be skipped.`);
+      } catch (error) {
+        console.error('Error skipping meal:', error);
+        addNotification('Error', 'Failed to skip meal. Please try again.', 'error');
+      }
+    }
+
+    setShowConfirmModal(false);
+    setConfirmData(null);
+    setSelectedDate(null);
   };
 
-  // Confirm cancellation (actual cancellation logic)
-  // Replace this entire function
-const confirmCancellation = async () => {
-  if (!confirmData) return;
-  
-  const { date, existingOrder } = confirmData;
-  const dateStr = date.toISOString().split('T')[0];
-  
-  if (existingOrder) {
-    // Cancel existing order
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: 'cancelled' })
-        .eq('id', existingOrder.id);
-      
-      if (error) throw error;
-      
-      setSubscriptionOrders(prev => 
-        prev.map(order => 
-          order.id === existingOrder.id 
-            ? { ...order, status: 'cancelled' }
-            : order
-        )
-      );
-      
-      addNotification('Meal Cancelled', `Meal for ${date.toLocaleDateString()} has been cancelled.`);
-    } catch (error) {
-      console.error('Error cancelling meal:', error);
-      addNotification('Error', 'Failed to cancel meal. Please try again.', 'error');
-    }
-  } else {
-    // Add to skipped_dates in subscriptions table
-    try {
-      const currentSkippedDates = activeSub.skipped_dates || [];
-      const updatedSkippedDates = [...currentSkippedDates, dateStr];
-      
-      const { error } = await supabase
-        .from('subscriptions')
-        .update({ 
-          skipped_dates: updatedSkippedDates 
-        })
-        .eq('id', activeSub.id);
-      
-      if (error) throw error;
-      
-      addNotification('Meal Skipped', `Meal for ${date.toLocaleDateString()} will be skipped.`);
-    } catch (error) {
-      console.error('Error skipping meal:', error);
-      addNotification('Error', 'Failed to skip meal. Please try again.', 'error');
-    }
-  }
-  
-  setShowConfirmModal(false);
-  setConfirmData(null);
-};
+  const getDateStatus = (date) => {
+    if (!activeSub) return null;
 
+    const dateStr = date.toISOString().split('T')[0];
+    const subStart = new Date(activeSub.start_date);
+    const subEnd = new Date(activeSub.end_date);
 
-  // Get order status for a specific date
-  // Replace this entire function
-const getDateStatus = (date) => {
-  if (!activeSub) return null;
-  
-  const dateStr = date.toISOString().split('T')[0];
-  const subStart = new Date(activeSub.start_date);
-  const subEnd = new Date(activeSub.end_date);
-  
-  // Check if date is within subscription period
-  if (date < subStart || date > subEnd) return null;
-  
-  // Check if date is in skipped dates
-  const skippedDates = activeSub.skipped_dates || [];
-  if (skippedDates.includes(dateStr)) return 'cancelled';
-  
-  const order = subscriptionOrders.find(order => 
-    order.created_at.split('T')[0] === dateStr
-  );
-  
-  return order ? order.status : 'scheduled';
-};
+    if (date < subStart || date > subEnd) return null;
 
+    const skippedDates = activeSub.skipped_dates || [];
+    if (skippedDates.includes(dateStr)) return 'cancelled';
 
-  // Get status color and icon
-  const getStatusDisplay = (status) => {
-    const statusConfig = {
-      scheduled: { color: 'bg-blue-100 text-blue-800 border-blue-200', icon: '📅', label: 'Scheduled' },
-      pending: { color: 'bg-amber-100 text-amber-800 border-amber-200', icon: '⏳', label: 'Pending' },
-      confirmed: { color: 'bg-green-100 text-green-800 border-green-200', icon: '✅', label: 'Confirmed' },
-      out_for_delivery: { color: 'bg-purple-100 text-purple-800 border-purple-200', icon: '🚚', label: 'Delivering' },
-      delivered: { color: 'bg-green-100 text-green-800 border-green-200', icon: '✅', label: 'Delivered' },
-      cancelled: { color: 'bg-red-100 text-red-800 border-red-200', icon: '❌', label: 'Cancelled' }
-    };
-    
-    return statusConfig[status] || statusConfig.scheduled;
+    const order = subscriptionOrders.find(order =>
+      order.created_at.split('T')[0] === dateStr
+    );
+
+    return order ? order.status : 'scheduled';
   };
 
   // Confirmation Modal Component
@@ -192,12 +187,12 @@ const getDateStatus = (date) => {
             <AlertCircle className="h-6 w-6 text-red-500" />
             <h3 className="text-lg font-semibold">Cancel Meal</h3>
           </div>
-          
+
           <p className="text-gray-600 mb-4">
             Are you sure you want to cancel your meal for{' '}
             <span className="font-medium">{date?.toLocaleDateString()}</span>?
           </p>
-          
+
           {mealName && (
             <div className="bg-gray-50 rounded-lg p-3 mb-4">
               <p className="text-sm text-gray-700">
@@ -205,7 +200,7 @@ const getDateStatus = (date) => {
               </p>
             </div>
           )}
-          
+
           <div className="flex gap-3">
             <button
               onClick={onClose}
@@ -225,7 +220,16 @@ const getDateStatus = (date) => {
     );
   };
 
-  // Fetch data when dependencies change
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'scheduled':
+      return <span className="inline-block w-3 h-3 rounded-full bg-green-600 mt-1" />;
+      case 'pending': return <PauseCircle className="h-4 w-4 text-yellow-600 mt-1" />;
+      case 'cancelled': return <X className="h-4 w-4 text-red-600 mt-1" />;
+      case 'confirmed': return <CheckCircle className="h-4 w-4 text-green-600 mt-1" />;
+    }
+  };
+
   useEffect(() => {
     fetchSubscriptionOrders();
   }, [selectedMonth, user, activeSub]);
@@ -244,8 +248,8 @@ const getDateStatus = (date) => {
               key={notif.id}
               className={`
                 p-4 rounded-lg shadow-lg max-w-sm border
-                ${notif.type === 'error' 
-                  ? 'bg-red-100 border-red-200 text-red-800' 
+                ${notif.type === 'error'
+                  ? 'bg-red-100 border-red-200 text-red-800'
                   : 'bg-green-100 border-green-200 text-green-800'
                 }
               `}
@@ -292,7 +296,7 @@ const getDateStatus = (date) => {
         </div>
       </div>
 
-      {/* Days of Week Header */}
+      {/* Days of Week */}
       <div className="grid grid-cols-7 gap-1 mb-2">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
           <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
@@ -308,50 +312,48 @@ const getDateStatus = (date) => {
           <p className="text-sm text-neutral-600">Loading calendar...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-1 overflow-x-auto sm:grid-cols-7">
           {calendarDays.map((date, index) => {
             const status = getDateStatus(date);
             const isCurrentMonth = date.getMonth() === currentMonth;
-            const isToday = date.toDateString() === today.toDateString();
-            const isPast = date < today;
-            const statusDisplay = status ? getStatusDisplay(status) : null;
+            const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
 
             return (
               <div
                 key={index}
                 className={`
-                  p-2 min-h-[60px] border rounded-lg relative transition-colors
+                  p-2 min-h-[60px] border rounded-lg relative flex flex-col items-center justify-center cursor-pointer
                   ${isCurrentMonth ? 'bg-white' : 'bg-gray-50 text-gray-400'}
-                  ${isToday ? 'ring-2 ring-blue-500' : ''}
-                  ${!isCurrentMonth ? 'opacity-50' : ''}
+                  ${isSelected ? 'ring-2 ring-indigo-500' : ''}
+                  ${date < today ? 'opacity-50 cursor-not-allowed' : ''}
                 `}
+                onClick={() => {
+                  if (isSelected) {
+                    setSelectedDate(null);
+                  } else if (isCurrentMonth) {
+                    setSelectedDate(date);
+                  }
+                }}
               >
-                <div className="text-sm font-medium mb-1">
-                  {date.getDate()}
-                </div>
-                
-                {status && isCurrentMonth && (
-                  <div className={`text-xs px-2 py-1 rounded border ${statusDisplay.color}`}>
-                    <div className="flex items-center justify-between gap-1">
-                      <span title={statusDisplay.label}>{statusDisplay.icon}</span>
-                      {status !== 'cancelled' && status !== 'delivered' && !isPast && (
-                        <button
-                          onClick={() => handleCancelRequest(date)}
-                          className="hover:bg-red-200 rounded p-1 transition-colors"
-                          title="Cancel this meal"
-                        >
-                          <X className="h-3 w-3 text-red-600" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="mt-1 text-[10px] leading-tight">
-                      {statusDisplay.label}
-                    </div>
-                  </div>
-                )}
+                <div className="text-sm font-medium">{date.getDate()}</div>
+                {getStatusIcon(status)}
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Cancel button below calendar */}
+      {selectedDate && (
+        <div className="mt-4 flex justify-center">
+          <button
+            disabled={selectedDate < today || getDateStatus(selectedDate) === 'cancelled'}
+            onClick={() => handleCancelRequest(selectedDate)}
+            className={`px-6 py-2 rounded-xl font-semibold text-white transition-colors 
+              ${selectedDate < today || getDateStatus(selectedDate) === 'cancelled' ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600'}`}
+          >
+            Cancel Meal
+          </button>
         </div>
       )}
 
@@ -360,20 +362,20 @@ const getDateStatus = (date) => {
         <h4 className="text-sm font-medium mb-2">Status Legend:</h4>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-blue-100 border border-blue-200 rounded"></div>
+            <span className="inline-block w-3 h-3 rounded-full bg-green-600 mt-1" />
             <span>Scheduled</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-100 border border-green-200 rounded"></div>
-            <span>Delivered</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-amber-100 border border-amber-200 rounded"></div>
+            <PauseCircle className="h-4 w-4 text-yellow-600" />
             <span>Pending</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-100 border border-red-200 rounded"></div>
+            <X className="h-4 w-4 text-red-600" />
             <span>Cancelled</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <span>Confirmed</span>
           </div>
         </div>
       </div>
