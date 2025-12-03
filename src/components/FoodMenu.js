@@ -820,7 +820,7 @@ const cancelSubscriptionAndOrders = async (subscriptionId, user_id) => {
                 "created_on": "2022-01-01 15:49:00",
                 "enable_delivery": 1,
                 "min_prep_time": 20,
-                "callback_url": "https://yparjubvkbeytnffqnpv.supabase.co/functions/v1/api-callback",
+                "callback_url": "https://app.countyourcalories.in/api",
                 "collect_cash": "480",
                 "otp": "9876"
                 }
@@ -2829,3 +2829,4 @@ enhancedStyle.textContent = `
 
 `;
 document.head.appendChild(enhancedStyle);
+
