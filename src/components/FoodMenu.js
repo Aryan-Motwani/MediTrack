@@ -18,6 +18,7 @@ import {
   onAuthStateChanged
 } from 'firebase/auth';
 import AddressForm from './AddressForm';
+import RazorpayPayment from "./Razorpay";
 
 
 // Demo users for manual auth
@@ -1223,6 +1224,7 @@ const response = await fetch('https://qle1yy2ydc.execute-api.ap-southeast-1.amaz
                             >
                               Make Your Own Meal
                             </button>
+                                <RazorpayPayment/>
                           </div>
         
                           <motion.div 
@@ -2829,4 +2831,5 @@ enhancedStyle.textContent = `
 
 `;
 document.head.appendChild(enhancedStyle);
+
 
