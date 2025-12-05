@@ -1,21 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
-const RazorpayPayment = () => {
+const RazorpayTest = () => {
   const [amount, setAmount] = useState('');
 
-  const handlePayment = () => {
+  // Check if Razorpay SDK is loaded
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handlePayment = async () => {
+    const scriptLoaded = await loadRazorpayScript();
+    if (!scriptLoaded) {
+      alert('Razorpay SDK failed to load. Are you online?');
+      return;
+    }
+
     const options = {
-      key: 'RjYIl0Ivc08iJi', // Replace with your Razorpay key ID
-      amount: amount * 100, // Razorpay expects amount in paise
+      key: 'RjYIl0Ivc08iJi', // Replace with your Razorpay key
+      amount: amount * 100, // Amount in paise
       currency: 'INR',
       name: 'Test Payment',
-      description: 'Test Transaction',
+      description: 'Test transaction',
       handler: function (response) {
-        alert('Payment Successful: ' + response.razorpay_payment_id);
+        alert('Payment successful: ' + response.razorpay_payment_id);
       },
       prefill: {
-        name: 'John Doe',
-        email: 'john.doe@example.com',
+        name: 'Test User',
+        email: 'test@example.com',
         contact: '9999999999',
       },
       theme: {
@@ -32,13 +49,13 @@ const RazorpayPayment = () => {
       <h2>Razorpay Test Payment</h2>
       <input
         type="number"
+        placeholder="Enter amount"
         value={amount}
         onChange={(e) => setAmount(e.target.value)}
-        placeholder="Enter amount"
       />
-      <button onClick={handlePayment}>Pay</button>
+      <button onClick={handlePayment}>Pay Now</button>
     </div>
   );
 };
 
-export default RazorpayPayment;
+export default RazorpayTest;
