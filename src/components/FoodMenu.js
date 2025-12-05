@@ -822,7 +822,7 @@ const cancelSubscriptionAndOrders = async (subscriptionId, user_id) => {
                 "enable_delivery": 1,
                 "min_prep_time": 20,
                 "callback_url": "https://yparjubvkbeytnffqnpv.supabase.co/functions/v1/api-callback",
-                'Authorization' : 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwYXJqdWJ2a2JleXRuZmZxbnB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5MTQzODcsImV4cCI6MjA3MzQ5MDM4N30.u_-ZLFNbdOv16-igoCblhu_sAWn-nF-1F2wAPybMReQ',
+                'Authorization': 'Bearer 7ffd7e6da67afa84c712fd9ff8a304b6efe97f5e',
                 "collect_cash": "480",
                 "otp": "9876"
                 }
@@ -1282,7 +1282,7 @@ const response = await fetch('https://qle1yy2ydc.execute-api.ap-southeast-1.amaz
         subtitle: "Have a drink without any guilt" 
       },
       { 
-        img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSwu40rzxLvJePrEUatA9lWVBsQ_rw9Rs4cgA&s", 
+        img: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR0nkS69PXA38pGRL2Tc8NJvq-pIyTR7HTleQ&s", 
         title: "🥗 Tasty Salads", 
         subtitle: "Taste and Health, Both Check ✅" 
       },
@@ -1413,8 +1413,6 @@ const response = await fetch('https://qle1yy2ydc.execute-api.ap-southeast-1.amaz
               <div className="flex items-center justify-between mb-2">
                 <span className="text-lg font-bold text-black">₹{item.price}</span>
                 <div className="flex items-center gap-1 text-xs text-neutral-500">
-                  <span>⭐ 4.2</span>
-                  <span>• 25 min</span>
                 </div>
               </div>
               {cart[item.id] ? (
@@ -1478,8 +1476,6 @@ const response = await fetch('https://qle1yy2ydc.execute-api.ap-southeast-1.amaz
                 <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
                   {item.calories} kcal
                 </span>
-                <span>⭐ 4.3</span>
-              </div>
               <div className="flex items-center justify-between">
                 <span className="text-lg font-bold text-black">₹{item.price}</span>
                 {cart[item.id] ? (
