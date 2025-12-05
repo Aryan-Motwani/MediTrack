@@ -821,7 +821,7 @@ const cancelSubscriptionAndOrders = async (subscriptionId, user_id) => {
                 "created_on": "2022-01-01 15:49:00",
                 "enable_delivery": 1,
                 "min_prep_time": 20,
-                "callback_url": "https://app.countyourcalories.in/api",
+                "callback_url": "https://yparjubvkbeytnffqnpv.supabase.co/functions/v1/api-callback",
                 "collect_cash": "480",
                 "otp": "9876"
                 }
@@ -909,7 +909,8 @@ const cancelSubscriptionAndOrders = async (subscriptionId, user_id) => {
 const response = await fetch('https://qle1yy2ydc.execute-api.ap-southeast-1.amazonaws.com/V1/save_order', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization' : '01e9817d9474ef00a1b3af3579cb95b35b094bf5f07fddbe3ac91b2099afbe7c'
       },
       body: JSON.stringify(petpoojaPayload)
     });
@@ -1224,7 +1225,6 @@ const response = await fetch('https://qle1yy2ydc.execute-api.ap-southeast-1.amaz
                             >
                               Make Your Own Meal
                             </button>
-                                <RazorpayPayment/>
                           </div>
         
                           <motion.div 
@@ -2831,5 +2831,3 @@ enhancedStyle.textContent = `
 
 `;
 document.head.appendChild(enhancedStyle);
-
-
