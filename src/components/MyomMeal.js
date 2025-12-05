@@ -168,6 +168,40 @@ export default function MyomMeal({ onBack, setPage, user, supabase }) {
     setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 4000);
   };
 
+  const handlePayment = () => {
+  // Dynamically add Razorpay script if not present
+  const script = document.createElement('script');
+  script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+  script.async = true;
+  document.body.appendChild(script);
+
+  script.onload = () => {
+    const options = {
+      key: 'rzp_live_RnqOet70XAGj0P', // Replace with your Razorpay key
+      amount: totals.price * 100, // Convert rupees to paise (e.g., 500 rupees = 50000 paise)
+      currency: 'INR',
+      name: 'Your Meal',
+      description: 'Custom Meal Order',
+      handler: function (response) {
+        // Handle successful payment
+        alert('Payment successful: ' + response.razorpay_payment_id);
+        // You can also send this payment ID to your backend for verification
+      },
+      prefill: {
+        name: 'Customer Name', // You can dynamically set this if you have user data
+        email: 'customer@example.com',
+        contact: '9999999999',
+      },
+      theme: {
+        color: '#F37254',
+      },
+    };
+    const rzp = new window.Razorpay(options);
+    rzp.open();
+  };
+};
+
+
   useEffect(() => {
     const open = showCart || showQty;
     if (open) {
@@ -794,13 +828,10 @@ export default function MyomMeal({ onBack, setPage, user, supabase }) {
                     </div>
                     <div className="mt-1 flex items-center justify-between">
                       <p className="text-base font-semibold">Total • ₹ {totals.price}</p>
-                      <button
-                        disabled={totals.items === 0}
-                        onClick={() => setCartView("checkout")}
-                        className="px-4 py-3 rounded-2xl bg-gradient-to-r from-green-600 to-green-700 text-white text-sm font-medium active:scale-[0.99] disabled:opacity-50"
-                      >
-                        Proceed to Checkout
-                      </button>
+                      <button onClick={handlePayment} className="px-4 py-3 rounded-2xl bg-gradient-to-r from-green-600 to-green-700 text-white text-sm font-medium">
+  Proceed to Checkout
+</button>
+
                       {/* <button
   onClick={saveSubscription}
   className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl font-medium"
