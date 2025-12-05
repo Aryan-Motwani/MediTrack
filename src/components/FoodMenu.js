@@ -822,6 +822,7 @@ const cancelSubscriptionAndOrders = async (subscriptionId, user_id) => {
                 "enable_delivery": 1,
                 "min_prep_time": 20,
                 "callback_url": "https://yparjubvkbeytnffqnpv.supabase.co/functions/v1/api-callback",
+                'Authorization' : 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwYXJqdWJ2a2JleXRuZmZxbnB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5MTQzODcsImV4cCI6MjA3MzQ5MDM4N30.u_-ZLFNbdOv16-igoCblhu_sAWn-nF-1F2wAPybMReQ',
                 "collect_cash": "480",
                 "otp": "9876"
                 }
@@ -910,7 +911,7 @@ const response = await fetch('https://qle1yy2ydc.execute-api.ap-southeast-1.amaz
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization' : '01e9817d9474ef00a1b3af3579cb95b35b094bf5f07fddbe3ac91b2099afbe7c'
+        'Authorization' : 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlwYXJqdWJ2a2JleXRuZmZxbnB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5MTQzODcsImV4cCI6MjA3MzQ5MDM4N30.u_-ZLFNbdOv16-igoCblhu_sAWn-nF-1F2wAPybMReQ'
       },
       body: JSON.stringify(petpoojaPayload)
     });
