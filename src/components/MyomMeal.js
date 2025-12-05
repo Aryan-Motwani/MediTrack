@@ -177,7 +177,7 @@ export default function MyomMeal({ onBack, setPage, user, supabase }) {
 
   script.onload = () => {
     const options = {
-      key: 'YOUR_RAZORPAY_KEY', // Replace with your Razorpay key
+      key: 'rzp_live_RnqOet70XAGj0P', // Replace with your Razorpay key
       amount: totals.price * 100, // Convert rupees to paise (e.g., 500 rupees = 50000 paise)
       currency: 'INR',
       name: 'Your Meal',
@@ -909,3 +909,4 @@ export default function MyomMeal({ onBack, setPage, user, supabase }) {
     </div>
   );
 }
+
