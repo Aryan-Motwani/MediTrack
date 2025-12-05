@@ -22,7 +22,8 @@ const RazorpayTest = () => {
     }
 
     const options = {
-      key: 'RjYIl0Ivc08iJi', // Replace with your Razorpay key
+      
+      key: 'rzp_live_RnqOet70XAGj0P', // Replace with your Razorpay key
       amount: amount * 100, // Amount in paise
       currency: 'INR',
       name: 'Test Payment',
@@ -59,3 +60,4 @@ const RazorpayTest = () => {
 };
 
 export default RazorpayTest;
+
