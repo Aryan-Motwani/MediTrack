@@ -1107,7 +1107,7 @@ const response = await fetch('https://qle1yy2ydc.execute-api.ap-southeast-1.amaz
             </header>
 
       {/* Main or Subscriptions Tab */}
-      {/* <div className="flex mt-3 mx-4 gap-2">
+      <div className="flex mt-3 mx-4 gap-2">
         <button
           className={`flex-1 px-4 py-2 rounded-2xl border text-sm font-semibold ${!subscriptionTab ? "bg-black text-white border-black" : "bg-white border-neutral-300 text-black"}`}
           onClick={() => setSubscriptionTab(false)}
@@ -1120,7 +1120,7 @@ const response = await fetch('https://qle1yy2ydc.execute-api.ap-southeast-1.amaz
         >
           Subscriptions
         </button>
-      </div> */}
+      </div>
 
       {!subscriptionTab && (
         // --- Existing Menu UI (copy all your menu/cart logic here, unchanged) ---
@@ -2828,3 +2828,4 @@ enhancedStyle.textContent = `
 
 `;
 document.head.appendChild(enhancedStyle);
+
