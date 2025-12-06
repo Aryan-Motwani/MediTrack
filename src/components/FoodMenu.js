@@ -1051,7 +1051,7 @@ const response = await fetch('https://qle1yy2ydc.execute-api.ap-southeast-1.amaz
                 <div className="flex-1">
                   <h1 className="text-lg font-semibold leading-tight">Count Your Calories</h1>
                   <p className="text-xs text-neutral-500">
-                    // {user ? `Welcome back, ${user.name.split(' ')[0]}!` : "Healthy, tasty & fast"}
+            {/* {user ? `Welcome back, ${user.name.split(' ')[0]}!` : "Healthy, tasty & fast"} */}
                   </p>
                 </div>
                 
@@ -2828,5 +2828,6 @@ enhancedStyle.textContent = `
 
 `;
 document.head.appendChild(enhancedStyle);
+
 
 
